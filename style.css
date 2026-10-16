@@ -1,0 +1,33 @@
+*{box-sizing:border-box}body{margin:0;font-family:"Sarabun","Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;background:#f4f5f7;color:#222;font-size:16px;padding-bottom:70px}
+.top{position:sticky;top:0;z-index:5;background:#c62828;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px}
+.top h1{font-size:19px;margin:0}.iconbtn{background:none;border:0;color:#fff;font-size:28px;line-height:1;padding:0 6px}
+main{padding:12px;max-width:900px;margin:auto}
+.bottom{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid #ddd;z-index:5}
+.bottom a{flex:1;text-align:center;text-decoration:none;color:#444;font-size:20px;padding:6px 0}.bottom a span{display:block;font-size:11px}
+.bottom a.on{color:#c62828;font-weight:bold}
+.card{background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px #0002}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.stat{background:#fff;border-radius:10px;padding:12px;text-align:center;box-shadow:0 1px 3px #0002}.stat b{display:block;font-size:28px}
+.red{color:#c62828}.orange{color:#e67e00}.green{color:#2e7d32}.gray{color:#777}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;color:#fff;background:#777}
+.badge.red{background:#c62828;color:#fff}.badge.orange{background:#e67e00;color:#fff}.badge.green{background:#2e7d32;color:#fff}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}.item{text-decoration:none;color:inherit;display:block}
+.small{font-size:13px;color:#666}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:14px}
+input,select,textarea{width:100%;padding:10px;font-size:16px;border:1px solid #bbb;border-radius:8px;font-family:inherit;background:#fff}
+.btn{display:inline-block;background:#c62828;color:#fff;border:0;border-radius:8px;padding:11px 16px;font-size:16px;text-decoration:none;margin:4px 4px 4px 0;font-family:inherit}
+.btn.sec{background:#455a64}.btn.ok{background:#2e7d32}.btn.full{width:100%}
+.chk{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;gap:8px}
+.pf{display:flex;gap:4px;flex-shrink:0}.pf button{border:1px solid #aaa;background:#fff;border-radius:6px;padding:8px 10px;font-family:inherit;font-size:14px}
+.pf button.p.on{background:#2e7d32;color:#fff;border-color:#2e7d32}.pf button.f.on{background:#c62828;color:#fff;border-color:#c62828}
+.overall{font-size:20px;text-align:center;padding:10px;border-radius:8px;margin:10px 0;font-weight:bold}
+.overall.pass{background:#e8f5e9;color:#2e7d32}.overall.fail{background:#ffebee;color:#c62828}
+img.photo{max-width:100%;border-radius:8px;margin-top:6px}
+.qrsheet{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:#fff;padding:8px}
+.qrlabel{border:1px dashed #999;padding:6px;text-align:center;page-break-inside:avoid;break-inside:avoid}
+.qrlabel .qr{display:flex;justify-content:center}.qrlabel .qr img,.qrlabel .qr canvas{width:120px!important;height:120px!important}
+.qrlabel b{display:block;font-size:15px;margin-top:4px}.qrlabel small{font-size:11px;display:block}
+#reader{width:100%}
+@media print{@page{size:A4;margin:10mm}body{background:#fff;padding:0}.no-print{display:none!important}main{padding:0;max-width:none}
+.qrsheet{grid-template-columns:repeat(4,minmax(0,1fr));gap:4mm;padding:0}.qrlabel .qr img,.qrlabel .qr canvas{width:38mm!important;height:38mm!important}}
+code{word-break:break-all}

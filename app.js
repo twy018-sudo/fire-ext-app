@@ -1,0 +1,149 @@
+'use strict';
+const KEY_E='fe_extinguishers',KEY_I='fe_inspections',KEY_S='fe_settings';
+const TYPES=['CO2 (คาร์บอนไดออกไซด์)','ผงเคมีแห้ง (Dry Chemical)','โฟม (Foam)','น้ำ (Water)','สารสะอาด (Clean Agent / Halotron)','เคมีเปียก (Wet Chemical / Class K)','อื่นๆ'];
+const CHECKS=[['gauge','เข็มเกจวัดแรงดันอยู่ในโซนสีเขียว'],['pin','สลักนิรภัยและซีลอยู่ในสภาพสมบูรณ์'],['hose','สายฉีดและหัวฉีดอยู่ในสภาพดี ไม่แตก/อุดตัน'],['body','ตัวถังไม่มีสนิม ไม่บุบ ไม่เสียหาย'],['access','ติดตั้งในที่เข้าถึงง่าย ไม่มีสิ่งกีดขวาง'],['sign','ป้ายสัญลักษณ์มองเห็นชัดเจน'],['label','ฉลาก/คำแนะนำการใช้อ่านได้ชัดเจน'],['weight','น้ำหนักถังปกติ (ยกแล้วไม่เบาผิดปกติ)']];
+const INTERVAL=30,SOON=7,EXP_SOON=60;
+const $=s=>document.querySelector(s),app=$('#app');
+const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){alert('บันทึกไม่สำเร็จ: พื้นที่เก็บข้อมูลเต็ม (ลองลบรูปภาพเก่าหรือสำรองข้อมูล)');return false}};
+let E=load(KEY_E,[]),I=load(KEY_I,[]),S=load(KEY_S,{inspector:''});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>new Date().toISOString().slice(0,10);
+const days=(a,b)=>Math.round((new Date(a)-new Date(b))/864e5);
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+const thDate=d=>d?new Date(d).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}):'-';
+const loc=e=>[e.building&&'อาคาร '+e.building,e.floor&&'ชั้น '+e.floor,e.spot].filter(Boolean).join(' / ');
+const findE=id=>E.find(e=>e.id===id);
+const insOf=id=>I.filter(i=>i.extId===id).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+function status(e){const last=insOf(e.id)[0],r={last};
+ r.due=last?addDays(last.date,INTERVAL):null;const dd=r.due?days(r.due,today()):-1;
+ r.insp=!last?'never':dd<0?'overdue':dd<=SOON?'soon':'ok';r.dueIn=dd;
+ if(e.expiry){const x=days(e.expiry,today());r.exp=x<0?'expired':x<=EXP_SOON?'soon':'ok';r.expIn=x}else r.exp='none';return r}
+const inspBadge=s=>({never:'<span class="badge red">ยังไม่เคยตรวจ</span>',overdue:'<span class="badge red">เลยกำหนดตรวจ</span>',soon:'<span class="badge orange">ใกล้ถึงกำหนดตรวจ</span>',ok:'<span class="badge green">ตรวจแล้ว</span>'}[s]);
+const expBadge=s=>({expired:'<span class="badge red">หมดอายุ</span>',soon:'<span class="badge orange">ใกล้หมดอายุ</span>'}[s]||'');
+function setTitle(t,back){$('#title').textContent=t;$('#back').style.visibility=back?'visible':'hidden'}
+$('#back').onclick=()=>history.length>1?history.back():location.hash='#/';
+let scanner=null;async function stopScan(){if(scanner){try{await scanner.stop()}catch{}try{scanner.clear()}catch{}scanner=null}}
+function extUrl(id){return location.origin+location.pathname+'#id='+encodeURIComponent(id)}
+function parseScan(t){const m=t.match(/[#&?]id=([^&]+)/);return m?decodeURIComponent(m[1]):t.trim()}
+
+async function route(){await stopScan();let h=location.hash||'#/';
+ if(h.startsWith('#id=')){location.replace('#/inspect/'+h.slice(4));return}
+ const [,p,a]=h.split('/').map(decodeURIComponent);
+ document.querySelectorAll('.bottom a').forEach(x=>x.classList.toggle('on',x.getAttribute('href')==='#/'+(p||'')));
+ window.scrollTo(0,0);
+ ({'':dash,list,new:()=>edit(),edit:()=>edit(a),ext:()=>detail(a),inspect:()=>inspect(a),scan,qr:()=>qr(a),data,view:()=>viewIns(a)}[p]||dash)();}
+addEventListener('hashchange',route);
+
+function card(e){const s=status(e);return `<a class="item card" href="#/ext/${encodeURIComponent(e.id)}"><div class="row"><b>${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
+<div class="small">${esc(loc(e))||'-'}</div><div class="small">${esc(e.type||'')} ${e.size?esc(e.size)+' '+esc(e.unit):''}</div>
+<div class="small">ตรวจล่าสุด: ${s.last?thDate(s.last.date)+(s.last.result==='pass'?' ✅':' ❌'):'-'} · ครบกำหนด: ${s.due?thDate(s.due):'ทันที'}${e.expiry?' · หมดอายุ: '+thDate(e.expiry):''}</div></a>`}
+
+function dash(){setTitle('แดชบอร์ด');const st=E.map(e=>[e,status(e)]);
+ const over=st.filter(([,s])=>s.insp==='overdue'||s.insp==='never'),soon=st.filter(([,s])=>s.insp==='soon'),exp=st.filter(([,s])=>s.exp==='expired'||s.exp==='soon');
+ const month=today().slice(0,7),done=new Set(I.filter(i=>i.date.startsWith(month)).map(i=>i.extId)).size,failed=st.filter(([,s])=>s.last&&s.last.result==='fail');
+ app.innerHTML=`<div class="stats"><div class="stat"><b>${E.length}</b>ถังทั้งหมด</div><div class="stat"><b class="green">${done}</b>ตรวจแล้วเดือนนี้</div>
+<div class="stat"><b class="red">${over.length}</b>เลยกำหนด/ยังไม่ตรวจ</div><div class="stat"><b class="orange">${exp.length}</b>หมดอายุ/ใกล้หมด</div></div>
+<a class="btn full" href="#/scan">📷 สแกน QR เพื่อตรวจ</a>
+${E.length?'':`<div class="card">ยังไม่มีข้อมูลถังดับเพลิง <a href="#/new">+ เพิ่มถังแรก</a> หรือ <a href="#" id="demo">โหลดข้อมูลตัวอย่าง</a></div>`}
+${sec('❌ ผลตรวจล่าสุดไม่ผ่าน',failed)}${sec('🔴 เลยกำหนดตรวจ / ยังไม่เคยตรวจ',over)}${sec('🟠 ใกล้ถึงกำหนดตรวจ (ภายใน '+SOON+' วัน)',soon)}${sec('⏳ หมดอายุ / ใกล้หมดอายุ (ภายใน '+EXP_SOON+' วัน)',exp)}`;
+ const d=$('#demo');if(d)d.onclick=ev=>{ev.preventDefault();demo();route()};
+ function sec(t,arr){return arr.length?`<h3>${t} (${arr.length})</h3>`+arr.map(([e])=>card(e)).join(''):''}}
+
+function list(){setTitle('รายการถังดับเพลิง');app.innerHTML=`<a class="btn full" href="#/new">+ เพิ่มถังดับเพลิง</a><input id="q" placeholder="ค้นหา รหัส / อาคาร / ชั้น / จุด"><div id="ls" style="margin-top:10px"></div>`;
+ const r=()=>{const q=$('#q').value.toLowerCase();const f=E.filter(e=>(e.id+' '+loc(e)+' '+e.type).toLowerCase().includes(q)).sort((a,b)=>a.id.localeCompare(b.id,'th',{numeric:true}));
+  $('#ls').innerHTML=f.map(card).join('')||'<p class="gray">ไม่พบข้อมูล</p>'};$('#q').oninput=r;r()}
+
+function edit(id){const e=id?findE(id):null;if(id&&!e)return notFound(id);setTitle(e?'แก้ไขถัง '+e.id:'เพิ่มถังดับเพลิง',1);const v=e||{unit:'lbs',install:today()};
+ app.innerHTML=`<form class="card" id="f"><label>รหัสถัง (ID) *</label><input name="id" required value="${esc(v.id)}" ${e?'readonly':''} placeholder="เช่น FE-A-01-001">
+<label>อาคาร</label><input name="building" value="${esc(v.building)}"><label>ชั้น</label><input name="floor" value="${esc(v.floor)}">
+<label>ตำแหน่ง/จุดติดตั้ง</label><input name="spot" value="${esc(v.spot)}" placeholder="เช่น หน้าลิฟต์โดยสาร">
+<label>ชนิด</label><select name="type">${TYPES.map(t=>`<option ${t===v.type?'selected':''}>${t}</option>`).join('')}</select>
+<label>ขนาด</label><div class="row"><input name="size" type="number" step="0.1" min="0" value="${esc(v.size)}"><select name="unit" style="width:100px"><option ${v.unit==='lbs'?'selected':''}>lbs</option><option ${v.unit==='kg'?'selected':''}>kg</option></select></div>
+<label>วันที่ติดตั้ง</label><input name="install" type="date" value="${esc(v.install)}">
+<label>วันหมดอายุ / ครบกำหนดเติมสาร</label><input name="expiry" type="date" value="${esc(v.expiry)}">
+<label>หมายเหตุ</label><textarea name="note" rows="2">${esc(v.note)}</textarea>
+<button class="btn ok full">💾 บันทึก</button>${e?'<button type="button" id="del" class="btn full">🗑 ลบถังนี้</button>':''}</form>`;
+ $('#f').onsubmit=ev=>{ev.preventDefault();const o=Object.fromEntries(new FormData(ev.target));o.id=o.id.trim();
+  if(!e&&findE(o.id))return alert('รหัสนี้มีอยู่แล้ว');if(e)Object.assign(e,o);else E.push(o);save(KEY_E,E);location.replace('#/ext/'+encodeURIComponent(o.id))};
+ if(e)$('#del').onclick=()=>{if(confirm('ลบถัง '+e.id+' และประวัติการตรวจทั้งหมด?')){E=E.filter(x=>x!==e);I=I.filter(i=>i.extId!==e.id);save(KEY_E,E);save(KEY_I,I);location.replace('#/list')}}}
+
+function notFound(id){setTitle('ไม่พบข้อมูล',1);app.innerHTML=`<div class="card">ไม่พบถังรหัส <b>${esc(id)}</b> ในเครื่องนี้<br><a class="btn" href="#/new">+ เพิ่มถังใหม่</a></div>`;
+ setTimeout(()=>{const i=document.querySelector('[name=id]')},0)}
+
+function detail(id){const e=findE(id);if(!e)return notFound(id);setTitle('ถัง '+e.id,1);const s=status(e),h=insOf(id);
+ app.innerHTML=`<div class="card"><div class="row"><b style="font-size:20px">${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
+<p>📍 ${esc(loc(e))||'-'}<br>🧯 ${esc(e.type)} ${e.size?esc(e.size)+' '+esc(e.unit):''}<br>ติดตั้ง: ${thDate(e.install)}<br>หมดอายุ/เติมสาร: ${thDate(e.expiry)}<br>ครบกำหนดตรวจ: ${s.due?thDate(s.due):'ทันที'}${e.note?'<br>หมายเหตุ: '+esc(e.note):''}</p>
+<div id="qr" style="display:flex;justify-content:center"></div>
+<a class="btn ok" href="#/inspect/${encodeURIComponent(id)}">✅ ตรวจประจำเดือน</a><a class="btn sec" href="#/edit/${encodeURIComponent(id)}">✏️ แก้ไข</a><a class="btn sec" href="#/qr/${encodeURIComponent(id)}">🖨 พิมพ์ QR</a></div>
+<h3>ประวัติการตรวจ (${h.length})</h3>${h.map(i=>`<a class="item card" href="#/view/${i.ts}"><div class="row"><b>${thDate(i.date)}</b>${i.result==='pass'?'<span class="badge green">ผ่าน</span>':'<span class="badge red">ไม่ผ่าน</span>'}</div><div class="small">ผู้ตรวจ: ${esc(i.inspector)}${i.notes?' · '+esc(i.notes):''}${i.photo?' · 📷':''}</div></a>`).join('')||'<p class="gray">ยังไม่มีประวัติ</p>'}`;
+ new QRCode($('#qr'),{text:extUrl(id),width:160,height:160,correctLevel:QRCode.CorrectLevel.M})}
+
+function viewIns(ts){const i=I.find(x=>String(x.ts)===ts);if(!i)return notFound(ts);const e=findE(i.extId);setTitle('ผลตรวจ '+i.extId,1);
+ app.innerHTML=`<div class="card"><b>${esc(i.extId)}</b> · ${thDate(i.date)}<div class="small">${esc(e?loc(e):'')}</div>
+<div class="overall ${i.result}">${i.result==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</div>
+${CHECKS.map(([k,t])=>`<div class="chk"><span>${t}</span><b class="${i.items[k]==='pass'?'green':'red'}">${i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน'}</b></div>`).join('')}
+<p>ผู้ตรวจ: ${esc(i.inspector)}<br>หมายเหตุ: ${esc(i.notes)||'-'}</p>${i.photo?`<img class="photo" src="${i.photo}">`:''}
+<button class="btn" id="d">🗑 ลบรายการตรวจนี้</button></div>`;
+ $('#d').onclick=()=>{if(confirm('ลบรายการตรวจนี้?')){I=I.filter(x=>x!==i);save(KEY_I,I);history.back()}}}
+
+function inspect(id){const e=findE(id);if(!e)return notFound(id);setTitle('ตรวจถัง '+e.id,1);const items={};let photo='';
+ app.innerHTML=`<div class="card"><b style="font-size:18px">${esc(e.id)}</b><div class="small">📍 ${esc(loc(e))} · ${esc(e.type)} ${e.size?esc(e.size)+' '+esc(e.unit):''}</div>
+<div class="small">วันที่ตรวจ: ${thDate(today())}</div>${expBadge(status(e).exp)}</div>
+<div class="card"><div class="row"><b>รายการตรวจประจำเดือน</b><button class="btn sec" id="all" style="padding:6px 10px;font-size:13px">ผ่านทั้งหมด</button></div>
+${CHECKS.map(([k,t],n)=>`<div class="chk"><span>${n+1}. ${t}</span><div class="pf" data-k="${k}"><button class="p">ผ่าน</button><button class="f">ไม่ผ่าน</button></div></div>`).join('')}
+<div id="ov" class="overall">กรุณาตรวจให้ครบทุกข้อ</div>
+<label>หมายเหตุ</label><textarea id="notes" rows="3" placeholder="รายละเอียดข้อบกพร่อง / การแก้ไข"></textarea>
+<label>ชื่อผู้ตรวจ *</label><input id="insp" value="${esc(S.inspector)}">
+<label>รูปถ่าย (ไม่บังคับ)</label><input type="file" id="ph" accept="image/*" capture="environment"><img id="pv" class="photo" hidden>
+<button class="btn ok full" id="sv" style="margin-top:12px">💾 บันทึกผลการตรวจ</button></div>`;
+ const upd=()=>{document.querySelectorAll('.pf').forEach(d=>{d.querySelector('.p').classList.toggle('on',items[d.dataset.k]==='pass');d.querySelector('.f').classList.toggle('on',items[d.dataset.k]==='fail')});
+  const n=Object.keys(items).length,ov=$('#ov');if(n<CHECKS.length){ov.className='overall';ov.textContent=`ตรวจแล้ว ${n}/${CHECKS.length} ข้อ`}else{const p=Object.values(items).every(x=>x==='pass');ov.className='overall '+(p?'pass':'fail');ov.textContent='ผลรวม: '+(p?'✅ ผ่าน':'❌ ไม่ผ่าน')}};
+ document.querySelectorAll('.pf').forEach(d=>d.onclick=ev=>{if(ev.target.tagName!=='BUTTON')return;items[d.dataset.k]=ev.target.classList.contains('p')?'pass':'fail';upd()});
+ $('#all').onclick=()=>{CHECKS.forEach(([k])=>items[k]='pass');upd()};
+ $('#ph').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;photo=await shrink(f);$('#pv').src=photo;$('#pv').hidden=false};
+ $('#sv').onclick=()=>{if(Object.keys(items).length<CHECKS.length)return alert('กรุณาตรวจให้ครบทุกข้อ');const ins=$('#insp').value.trim();if(!ins)return alert('กรุณากรอกชื่อผู้ตรวจ');
+  S.inspector=ins;save(KEY_S,S);const rec={ts:Date.now(),extId:id,date:today(),items:{...items},result:Object.values(items).every(x=>x==='pass')?'pass':'fail',notes:$('#notes').value.trim(),inspector:ins,photo};
+  I.push(rec);if(!save(KEY_I,I)){I.pop();return}alert('บันทึกแล้ว: '+(rec.result==='pass'?'ผ่าน':'ไม่ผ่าน'));location.replace('#/ext/'+encodeURIComponent(id))}}
+function shrink(f){return new Promise(res=>{const img=new Image();img.onload=()=>{const m=800,k=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',0.6))};img.src=URL.createObjectURL(f)})}
+
+function scan(){setTitle('สแกน QR');app.innerHTML=`<div class="card"><div id="reader"></div><p class="small" id="msg">กำลังเปิดกล้อง... (ต้องอนุญาตการใช้กล้อง)</p>
+<label>หรือพิมพ์รหัสถัง</label><div class="row"><input id="mid" list="ids"><button class="btn" id="go">ไป</button></div><datalist id="ids">${E.map(e=>`<option value="${esc(e.id)}">`).join('')}</datalist></div>`;
+ $('#go').onclick=()=>{const v=$('#mid').value.trim();if(v)location.hash='#/inspect/'+encodeURIComponent(v)};
+ if(typeof Html5Qrcode==='undefined'){$('#msg').textContent='ไม่พบไลบรารีสแกน';return}
+ scanner=new Html5Qrcode('reader');scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:230}},t=>{const id=parseScan(t);stopScan().then(()=>{navigator.vibrate&&navigator.vibrate(150);location.hash='#/inspect/'+encodeURIComponent(id)})},()=>{})
+  .then(()=>$('#msg').textContent='เล็งกล้องไปที่ QR บนถังดับเพลิง').catch(err=>{$('#msg').textContent='เปิดกล้องไม่ได้: '+err+' (ต้องใช้ HTTPS หรือ localhost)';scanner=null})}
+
+function qr(one){setTitle('ป้าย QR',1);const sel=E.filter(e=>!one||e.id===one).sort((a,b)=>a.id.localeCompare(b.id,'th',{numeric:true}));
+ const bs=[...new Set(E.map(e=>e.building).filter(Boolean))];
+ app.innerHTML=`<div class="card no-print"><p class="small">พิมพ์บนกระดาษ A4 (4 คอลัมน์ต่อแถว) ตัดตามเส้นประแล้วติดที่ถัง · QR เก็บลิงก์ <code>${esc(extUrl('รหัส'))}</code></p>
+${one?'':`<label>กรองตามอาคาร</label><select id="fb"><option value="">ทั้งหมด</option>${bs.map(b=>`<option>${esc(b)}</option>`).join('')}</select>`}
+<button class="btn" onclick="print()">🖨 พิมพ์</button></div><div class="qrsheet" id="sheet"></div>`;
+ const r=b=>{const sh=$('#sheet');sh.innerHTML='';sel.filter(e=>!b||e.building===b).forEach(e=>{const d=document.createElement('div');d.className='qrlabel';d.innerHTML=`<div class="qr"></div><b>${esc(e.id)}</b><small>${esc(loc(e))}</small><small>${esc((e.type||'').split(' (')[0])} ${e.size?esc(e.size)+' '+esc(e.unit):''}</small>`;sh.appendChild(d);
+  new QRCode(d.querySelector('.qr'),{text:extUrl(e.id),width:256,height:256,correctLevel:QRCode.CorrectLevel.M})});if(!sh.children.length)sh.innerHTML='<p>ไม่มีข้อมูล</p>'};
+ r('');const fb=$('#fb');if(fb)fb.onchange=()=>r(fb.value)}
+
+function csv(rows){return '\uFEFF'+rows.map(r=>r.map(c=>{c=String(c??'');return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\r\n')}
+function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+function data(){setTitle('ข้อมูล / สำรอง');let used=0;for(const k of [KEY_E,KEY_I,KEY_S])used+=(localStorage.getItem(k)||'').length;
+ app.innerHTML=`<div class="card"><b>ส่งออก CSV (เปิดใน Excel ได้)</b><br><button class="btn" id="ce">รายการถังดับเพลิง</button><button class="btn" id="ci">ประวัติการตรวจ</button></div>
+<div class="card"><b>สำรอง / กู้คืน (JSON)</b><br><button class="btn sec" id="bj">⬇ สำรองข้อมูล</button><label>กู้คืนจากไฟล์ (จะแทนที่ข้อมูลปัจจุบัน)</label><input type="file" id="rj" accept=".json,application/json"></div>
+<div class="card small">ถัง ${E.length} · การตรวจ ${I.length} · ใช้พื้นที่ประมาณ ${(used*2/1048576).toFixed(2)} MB (localStorage จำกัดราว 5 MB)<br>ข้อมูลเก็บในเครื่องนี้เท่านั้น ควรสำรองข้อมูลเป็นประจำ
+<br><button class="btn sec" id="dm">โหลดข้อมูลตัวอย่าง</button><button class="btn" id="wipe">ลบข้อมูลทั้งหมด</button></div>`;
+ const st=today();
+ $('#ce').onclick=()=>dl(`extinguishers_${st}.csv`,csv([['รหัส','อาคาร','ชั้น','ตำแหน่ง','ชนิด','ขนาด','หน่วย','วันติดตั้ง','วันหมดอายุ/เติมสาร','ตรวจล่าสุด','ผลล่าสุด','ครบกำหนดตรวจ','สถานะหมายเหตุ'],...E.map(e=>{const s=status(e);return [e.id,e.building,e.floor,e.spot,e.type,e.size,e.unit,e.install,e.expiry,s.last?.date,s.last?(s.last.result==='pass'?'ผ่าน':'ไม่ผ่าน'):'',s.due,e.note]})]),'text/csv;charset=utf-8');
+ $('#ci').onclick=()=>dl(`inspections_${st}.csv`,csv([['วันที่','รหัสถัง','ตำแหน่ง',...CHECKS.map(c=>c[1]),'ผลรวม','ผู้ตรวจ','หมายเหตุ','มีรูป'],...I.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(i=>{const e=findE(i.extId);return [i.date,i.extId,e?loc(e):'',...CHECKS.map(([k])=>i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน'),i.result==='pass'?'ผ่าน':'ไม่ผ่าน',i.inspector,i.notes,i.photo?'มี':'']})]),'text/csv;charset=utf-8');
+ $('#bj').onclick=()=>dl(`fire-ext-backup_${st}.json`,JSON.stringify({app:'fire-ext-app',version:1,exported:new Date().toISOString(),extinguishers:E,inspections:I,settings:S}),'application/json');
+ $('#rj').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.extinguishers)||!Array.isArray(d.inspections))throw 0;
+  if(!confirm(`กู้คืน ${d.extinguishers.length} ถัง, ${d.inspections.length} การตรวจ? ข้อมูลเดิมจะถูกแทนที่`))return;E=d.extinguishers;I=d.inspections;S=d.settings||S;save(KEY_E,E);save(KEY_I,I);save(KEY_S,S);alert('กู้คืนสำเร็จ');location.hash='#/'}catch{alert('ไฟล์ไม่ถูกต้อง')}};
+ $('#dm').onclick=()=>{demo();alert('เพิ่มข้อมูลตัวอย่างแล้ว');data()};
+ $('#wipe').onclick=()=>{if(confirm('ลบข้อมูลทั้งหมด? (ไม่สามารถกู้คืนได้)')&&confirm('ยืนยันอีกครั้ง')){E=[];I=[];save(KEY_E,E);save(KEY_I,I);data()}}}
+
+function demo(){const t=today(),T=TYPES;const add=(id,b,f,s,ty,sz,u,exp)=>{if(!findE(id))E.push({id,building:b,floor:f,spot:s,type:T[ty],size:sz,unit:u,install:addDays(t,-400),expiry:addDays(t,exp),note:''})};
+ add('FE-A-01-001','A','1','หน้าลิฟต์โดยสาร',1,'15','lbs',300);add('FE-A-01-002','A','1','ห้องไฟฟ้า',0,'10','lbs',20);add('FE-A-02-001','A','2','ทางหนีไฟฝั่งตะวันออก',1,'15','lbs',-5);
+ add('FE-A-03-001','A','3','ห้องครัว',5,'6','kg',500);add('FE-B-01-001','B','1','ล็อบบี้',2,'20','lbs',200);add('FE-B-02-001','B','2','ห้องเซิร์ฟเวอร์',4,'15','lbs',400);
+ const ok=Object.fromEntries(CHECKS.map(([k])=>[k,'pass']));const ins=(id,d,res)=>I.push({ts:Date.now()+Math.random()*1e6|0,extId:id,date:addDays(t,d),items:res?{...ok}:{...ok,gauge:'fail'},result:res?'pass':'fail',notes:res?'':'เข็มอยู่โซนแดง แจ้งเติมสาร',inspector:'สมชาย ใจดี',photo:''});
+ ins('FE-A-01-001',-3,1);ins('FE-A-01-002',-26,1);ins('FE-A-02-001',-45,1);ins('FE-B-01-001',-10,0);ins('FE-B-02-001',-1,1);save(KEY_E,E);save(KEY_I,I)}
+
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+route();
