@@ -1,12 +1,14 @@
 'use strict';
-const KEY_E='fe_extinguishers',KEY_I='fe_inspections',KEY_S='fe_settings';
+const KEY_T='fe_tombstones',KEY_E='fe_extinguishers',KEY_I='fe_inspections',KEY_S='fe_settings';
 const TYPES=['CO2 (คาร์บอนไดออกไซด์)','ผงเคมีแห้ง (Dry Chemical)','โฟม (Foam)','น้ำ (Water)','สารสะอาด (Clean Agent / Halotron)','เคมีเปียก (Wet Chemical / Class K)','อื่นๆ'];
 const CHECKS=[['gauge','เข็มเกจวัดแรงดันอยู่ในโซนสีเขียว'],['pin','สลักนิรภัยและซีลอยู่ในสภาพสมบูรณ์'],['hose','สายฉีดและหัวฉีดอยู่ในสภาพดี ไม่แตก/อุดตัน'],['body','ตัวถังไม่มีสนิม ไม่บุบ ไม่เสียหาย'],['access','ติดตั้งในที่เข้าถึงง่าย ไม่มีสิ่งกีดขวาง'],['sign','ป้ายสัญลักษณ์มองเห็นชัดเจน'],['label','ฉลาก/คำแนะนำการใช้อ่านได้ชัดเจน'],['weight','น้ำหนักถังปกติ (ยกแล้วไม่เบาผิดปกติ)']];
 const INTERVAL=30,SOON=7,EXP_SOON=60;
 const $=s=>document.querySelector(s),app=$('#app');
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){alert('บันทึกไม่สำเร็จ: พื้นที่เก็บข้อมูลเต็ม (ลองลบรูปภาพเก่าหรือสำรองข้อมูล)');return false}};
-let E=load(KEY_E,[]),I=load(KEY_I,[]),S=load(KEY_S,{inspector:''});
+let E=load(KEY_E,[]),I=load(KEY_I,[]),S=load(KEY_S,{inspector:''}),T=load(KEY_T,[]);
+I.forEach(i=>{if(!i.id)i.id=String(i.ts)});E.forEach(e=>{if(!e.updatedAt){e.updatedAt=1;e.dirty=1}});
+const newId=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Date().toISOString().slice(0,10);
 const days=(a,b)=>Math.round((new Date(a)-new Date(b))/864e5);
@@ -28,6 +30,7 @@ function extUrl(id){return location.origin+location.pathname+'#id='+encodeURICom
 function parseScan(t){const m=t.match(/[#&?]id=([^&]+)/);return m?decodeURIComponent(m[1]):t.trim()}
 
 async function route(){await stopScan();let h=location.hash||'#/';
+ if(h.startsWith('#setup=')){acceptSetup(h.slice(7));return}
  if(h.startsWith('#id=')){location.replace('#/inspect/'+h.slice(4));return}
  const [,p,a]=h.split('/').map(decodeURIComponent);
  document.querySelectorAll('.bottom a').forEach(x=>x.classList.toggle('on',x.getAttribute('href')==='#/'+(p||'')));
@@ -65,8 +68,8 @@ function edit(id){const e=id?findE(id):null;if(id&&!e)return notFound(id);setTit
 <label>หมายเหตุ</label><textarea name="note" rows="2">${esc(v.note)}</textarea>
 <button class="btn ok full">💾 บันทึก</button>${e?'<button type="button" id="del" class="btn full">🗑 ลบถังนี้</button>':''}</form>`;
  $('#f').onsubmit=ev=>{ev.preventDefault();const o=Object.fromEntries(new FormData(ev.target));o.id=o.id.trim();
-  if(!e&&findE(o.id))return alert('รหัสนี้มีอยู่แล้ว');if(e)Object.assign(e,o);else E.push(o);save(KEY_E,E);location.replace('#/ext/'+encodeURIComponent(o.id))};
- if(e)$('#del').onclick=()=>{if(confirm('ลบถัง '+e.id+' และประวัติการตรวจทั้งหมด?')){E=E.filter(x=>x!==e);I=I.filter(i=>i.extId!==e.id);save(KEY_E,E);save(KEY_I,I);location.replace('#/list')}}}
+  if(!e&&findE(o.id))return alert('รหัสนี้มีอยู่แล้ว');o.updatedAt=Date.now();o.dirty=1;if(e)Object.assign(e,o);else E.push(o);T=T.filter(t=>t.id!==o.id);save(KEY_E,E);save(KEY_T,T);scheduleSync();location.replace('#/ext/'+encodeURIComponent(o.id))};
+ if(e)$('#del').onclick=()=>{if(confirm('ลบถัง '+e.id+'? (จะลบในทีมด้วยเมื่อซิงก์)')){E=E.filter(x=>x!==e);T=T.filter(t=>t.id!==e.id);T.push({id:e.id,updatedAt:Date.now(),dirty:1});save(KEY_E,E);save(KEY_T,T);scheduleSync();location.replace('#/list')}}}
 
 function notFound(id){setTitle('ไม่พบข้อมูล',1);app.innerHTML=`<div class="card">ไม่พบถังรหัส <b>${esc(id)}</b> ในเครื่องนี้<br><a class="btn" href="#/new">+ เพิ่มถังใหม่</a></div>`;
  setTimeout(()=>{const i=document.querySelector('[name=id]')},0)}
@@ -76,16 +79,16 @@ function detail(id){const e=findE(id);if(!e)return notFound(id);setTitle('ถั
 <p>📍 ${esc(loc(e))||'-'}<br>🧯 ${esc(e.type)} ${e.size?esc(e.size)+' '+esc(e.unit):''}<br>ติดตั้ง: ${thDate(e.install)}<br>หมดอายุ/เติมสาร: ${thDate(e.expiry)}<br>ครบกำหนดตรวจ: ${s.due?thDate(s.due):'ทันที'}${e.note?'<br>หมายเหตุ: '+esc(e.note):''}</p>
 <div id="qr" style="display:flex;justify-content:center"></div>
 <a class="btn ok" href="#/inspect/${encodeURIComponent(id)}">✅ ตรวจประจำเดือน</a><a class="btn sec" href="#/edit/${encodeURIComponent(id)}">✏️ แก้ไข</a><a class="btn sec" href="#/qr/${encodeURIComponent(id)}">🖨 พิมพ์ QR</a></div>
-<h3>ประวัติการตรวจ (${h.length})</h3>${h.map(i=>`<a class="item card" href="#/view/${i.ts}"><div class="row"><b>${thDate(i.date)}</b>${i.result==='pass'?'<span class="badge green">ผ่าน</span>':'<span class="badge red">ไม่ผ่าน</span>'}</div><div class="small">ผู้ตรวจ: ${esc(i.inspector)}${i.notes?' · '+esc(i.notes):''}${i.photo?' · 📷':''}</div></a>`).join('')||'<p class="gray">ยังไม่มีประวัติ</p>'}`;
+<h3>ประวัติการตรวจ (${h.length})</h3>${h.map(i=>`<a class="item card" href="#/view/${i.ts}"><div class="row"><b>${thDate(i.date)}</b>${i.result==='pass'?'<span class="badge green">ผ่าน</span>':'<span class="badge red">ไม่ผ่าน</span>'}</div><div class="small">ผู้ตรวจ: ${esc(i.inspector)}${i.notes?' · '+esc(i.notes):''}${i.photo||i.photoUrl?' · 📷':''}${i.synced?'':' · ⏳'}</div></a>`).join('')||'<p class="gray">ยังไม่มีประวัติ</p>'}`;
  new QRCode($('#qr'),{text:extUrl(id),width:160,height:160,correctLevel:QRCode.CorrectLevel.M})}
 
 function viewIns(ts){const i=I.find(x=>String(x.ts)===ts);if(!i)return notFound(ts);const e=findE(i.extId);setTitle('ผลตรวจ '+i.extId,1);
  app.innerHTML=`<div class="card"><b>${esc(i.extId)}</b> · ${thDate(i.date)}<div class="small">${esc(e?loc(e):'')}</div>
 <div class="overall ${i.result}">${i.result==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</div>
 ${CHECKS.map(([k,t])=>`<div class="chk"><span>${t}</span><b class="${i.items[k]==='pass'?'green':'red'}">${i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน'}</b></div>`).join('')}
-<p>ผู้ตรวจ: ${esc(i.inspector)}<br>หมายเหตุ: ${esc(i.notes)||'-'}</p>${i.photo?`<img class="photo" src="${i.photo}">`:''}
-<button class="btn" id="d">🗑 ลบรายการตรวจนี้</button></div>`;
- $('#d').onclick=()=>{if(confirm('ลบรายการตรวจนี้?')){I=I.filter(x=>x!==i);save(KEY_I,I);history.back()}}}
+<p>ผู้ตรวจ: ${esc(i.inspector)}<br>หมายเหตุ: ${esc(i.notes)||'-'}</p>${i.photo?`<img class="photo" src="${i.photo}">`:i.photoUrl&&/^https:/.test(i.photoUrl)?`<a class="btn sec" target="_blank" rel="noopener" href="${esc(i.photoUrl)}">📷 ดูรูปใน Google Drive</a>`:''}<p class="small">${i.synced?'☁️ ซิงก์แล้ว':'⏳ ยังไม่ซิงก์'}</p>
+${i.synced?'':'<button class="btn" id="d">🗑 ลบรายการตรวจนี้</button>'}</div>`;
+ if($('#d'))$('#d').onclick=()=>{if(confirm('ลบรายการตรวจนี้?')){I=I.filter(x=>x!==i);save(KEY_I,I);history.back()}}}
 
 function inspect(id){const e=findE(id);if(!e)return notFound(id);setTitle('ตรวจถัง '+e.id,1);const items={};let photo='';
  app.innerHTML=`<div class="card"><b style="font-size:18px">${esc(e.id)}</b><div class="small">📍 ${esc(loc(e))} · ${esc(e.type)} ${e.size?esc(e.size)+' '+esc(e.unit):''}</div>
@@ -103,8 +106,8 @@ ${CHECKS.map(([k,t],n)=>`<div class="chk"><span>${n+1}. ${t}</span><div class="p
  $('#all').onclick=()=>{CHECKS.forEach(([k])=>items[k]='pass');upd()};
  $('#ph').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;photo=await shrink(f);$('#pv').src=photo;$('#pv').hidden=false};
  $('#sv').onclick=()=>{if(Object.keys(items).length<CHECKS.length)return alert('กรุณาตรวจให้ครบทุกข้อ');const ins=$('#insp').value.trim();if(!ins)return alert('กรุณากรอกชื่อผู้ตรวจ');
-  S.inspector=ins;save(KEY_S,S);const rec={ts:Date.now(),extId:id,date:today(),items:{...items},result:Object.values(items).every(x=>x==='pass')?'pass':'fail',notes:$('#notes').value.trim(),inspector:ins,photo};
-  I.push(rec);if(!save(KEY_I,I)){I.pop();return}alert('บันทึกแล้ว: '+(rec.result==='pass'?'ผ่าน':'ไม่ผ่าน'));location.replace('#/ext/'+encodeURIComponent(id))}}
+  S.inspector=ins;save(KEY_S,S);const rec={id:newId(),ts:Date.now(),synced:false,extId:id,date:today(),items:{...items},result:Object.values(items).every(x=>x==='pass')?'pass':'fail',notes:$('#notes').value.trim(),inspector:ins,photo};
+  I.push(rec);if(!save(KEY_I,I)){I.pop();return}scheduleSync();alert('บันทึกแล้ว: '+(rec.result==='pass'?'ผ่าน':'ไม่ผ่าน'));location.replace('#/ext/'+encodeURIComponent(id))}}
 function shrink(f){return new Promise(res=>{const img=new Image();img.onload=()=>{const m=800,k=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',0.6))};img.src=URL.createObjectURL(f)})}
 
 function scan(){setTitle('สแกน QR');app.innerHTML=`<div class="card"><div id="reader"></div><p class="small" id="msg">กำลังเปิดกล้อง... (ต้องอนุญาตการใช้กล้อง)</p>
@@ -126,24 +129,72 @@ ${one?'':`<label>กรองตามอาคาร</label><select id="fb"><op
 function csv(rows){return '\uFEFF'+rows.map(r=>r.map(c=>{c=String(c??'');return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\r\n')}
 function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
 function data(){setTitle('ข้อมูล / สำรอง');let used=0;for(const k of [KEY_E,KEY_I,KEY_S])used+=(localStorage.getItem(k)||'').length;
- app.innerHTML=`<div class="card"><b>ส่งออก CSV (เปิดใน Excel ได้)</b><br><button class="btn" id="ce">รายการถังดับเพลิง</button><button class="btn" id="ci">ประวัติการตรวจ</button></div>
+ app.innerHTML=`<div class="card"><b>☁️ ซิงก์กับ Google Sheets (ใช้ร่วมกันในทีม)</b>
+<label>Web App URL</label><input id="su" value="${esc(S.url)}" placeholder="https://script.google.com/macros/s/.../exec">
+<label>รหัสทีม (Team key)</label><input id="sk" value="${esc(S.key)}" autocomplete="off">
+<button class="btn ok" id="ss">🔄 ซิงก์ตอนนี้</button><button class="btn sec" id="inv">👥 ชวนเพื่อน</button>
+<div class="small" id="syncinfo"></div><div id="invbox"></div></div>
+<div class="card"><b>ส่งออก CSV (เปิดใน Excel ได้)</b><br><button class="btn" id="ce">รายการถังดับเพลิง</button><button class="btn" id="ci">ประวัติการตรวจ</button></div>
 <div class="card"><b>สำรอง / กู้คืน (JSON)</b><br><button class="btn sec" id="bj">⬇ สำรองข้อมูล</button><label>กู้คืนจากไฟล์ (จะแทนที่ข้อมูลปัจจุบัน)</label><input type="file" id="rj" accept=".json,application/json"></div>
 <div class="card small">ถัง ${E.length} · การตรวจ ${I.length} · ใช้พื้นที่ประมาณ ${(used*2/1048576).toFixed(2)} MB (localStorage จำกัดราว 5 MB)<br>ข้อมูลเก็บในเครื่องนี้เท่านั้น ควรสำรองข้อมูลเป็นประจำ
 <br><button class="btn sec" id="dm">โหลดข้อมูลตัวอย่าง</button><button class="btn" id="wipe">ลบข้อมูลทั้งหมด</button></div>`;
- const st=today();
+ const st=today();showSync();
+ const keep=()=>{const u=$('#su').value.trim(),k=$('#sk').value.trim();if(u!==S.url||k!==S.key){S.url=u;S.key=k;S.lastSync=0;save(KEY_S,S)}};
+ $('#ss').onclick=()=>{keep();sync(true)};
+ $('#inv').onclick=()=>{keep();if(!S.url||!S.key)return alert('กรุณากรอก URL และรหัสทีมก่อน');const link=inviteLink();
+  $('#invbox').innerHTML=`<p class="small">ให้เพื่อนสแกน QR นี้ หรือส่งลิงก์ให้เปิดในโทรศัพท์ (Chrome) — <b class="red">อย่าแชร์ให้คนนอกทีม</b> เพราะมีรหัสทีมอยู่</p><div id="invqr" style="display:flex;justify-content:center"></div><input readonly value="${esc(link)}" onclick="this.select()"><button class="btn sec" id="cp">📋 คัดลอก/แชร์ลิงก์</button>`;
+  new QRCode($('#invqr'),{text:link,width:200,height:200,correctLevel:QRCode.CorrectLevel.L});
+  $('#cp').onclick=async()=>{try{if(navigator.share)await navigator.share({title:'ตรวจถังดับเพลิง - เข้าร่วมทีม',url:link});else{await navigator.clipboard.writeText(link);alert('คัดลอกแล้ว')}}catch{}}};
  $('#ce').onclick=()=>dl(`extinguishers_${st}.csv`,csv([['รหัส','อาคาร','ชั้น','ตำแหน่ง','ชนิด','ขนาด','หน่วย','วันติดตั้ง','วันหมดอายุ/เติมสาร','ตรวจล่าสุด','ผลล่าสุด','ครบกำหนดตรวจ','สถานะหมายเหตุ'],...E.map(e=>{const s=status(e);return [e.id,e.building,e.floor,e.spot,e.type,e.size,e.unit,e.install,e.expiry,s.last?.date,s.last?(s.last.result==='pass'?'ผ่าน':'ไม่ผ่าน'):'',s.due,e.note]})]),'text/csv;charset=utf-8');
  $('#ci').onclick=()=>dl(`inspections_${st}.csv`,csv([['วันที่','รหัสถัง','ตำแหน่ง',...CHECKS.map(c=>c[1]),'ผลรวม','ผู้ตรวจ','หมายเหตุ','มีรูป'],...I.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(i=>{const e=findE(i.extId);return [i.date,i.extId,e?loc(e):'',...CHECKS.map(([k])=>i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน'),i.result==='pass'?'ผ่าน':'ไม่ผ่าน',i.inspector,i.notes,i.photo?'มี':'']})]),'text/csv;charset=utf-8');
  $('#bj').onclick=()=>dl(`fire-ext-backup_${st}.json`,JSON.stringify({app:'fire-ext-app',version:1,exported:new Date().toISOString(),extinguishers:E,inspections:I,settings:S}),'application/json');
  $('#rj').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.extinguishers)||!Array.isArray(d.inspections))throw 0;
   if(!confirm(`กู้คืน ${d.extinguishers.length} ถัง, ${d.inspections.length} การตรวจ? ข้อมูลเดิมจะถูกแทนที่`))return;E=d.extinguishers;I=d.inspections;S=d.settings||S;save(KEY_E,E);save(KEY_I,I);save(KEY_S,S);alert('กู้คืนสำเร็จ');location.hash='#/'}catch{alert('ไฟล์ไม่ถูกต้อง')}};
  $('#dm').onclick=()=>{demo();alert('เพิ่มข้อมูลตัวอย่างแล้ว');data()};
- $('#wipe').onclick=()=>{if(confirm('ลบข้อมูลทั้งหมด? (ไม่สามารถกู้คืนได้)')&&confirm('ยืนยันอีกครั้ง')){E=[];I=[];save(KEY_E,E);save(KEY_I,I);data()}}}
+ $('#wipe').onclick=()=>{if(confirm('ลบข้อมูลทั้งหมด? (ไม่สามารถกู้คืนได้)')&&confirm('ยืนยันอีกครั้ง')){E=[];I=[];T=[];save(KEY_E,E);save(KEY_I,I);save(KEY_T,T);data()}}}
 
-function demo(){const t=today(),T=TYPES;const add=(id,b,f,s,ty,sz,u,exp)=>{if(!findE(id))E.push({id,building:b,floor:f,spot:s,type:T[ty],size:sz,unit:u,install:addDays(t,-400),expiry:addDays(t,exp),note:''})};
+function demo(){const t=today();const add=(id,b,f,s,ty,sz,u,exp)=>{if(!findE(id))E.push({updatedAt:Date.now(),dirty:1,id,building:b,floor:f,spot:s,type:TYPES[ty],size:sz,unit:u,install:addDays(t,-400),expiry:addDays(t,exp),note:''})};
  add('FE-A-01-001','A','1','หน้าลิฟต์โดยสาร',1,'15','lbs',300);add('FE-A-01-002','A','1','ห้องไฟฟ้า',0,'10','lbs',20);add('FE-A-02-001','A','2','ทางหนีไฟฝั่งตะวันออก',1,'15','lbs',-5);
  add('FE-A-03-001','A','3','ห้องครัว',5,'6','kg',500);add('FE-B-01-001','B','1','ล็อบบี้',2,'20','lbs',200);add('FE-B-02-001','B','2','ห้องเซิร์ฟเวอร์',4,'15','lbs',400);
- const ok=Object.fromEntries(CHECKS.map(([k])=>[k,'pass']));const ins=(id,d,res)=>I.push({ts:Date.now()+Math.random()*1e6|0,extId:id,date:addDays(t,d),items:res?{...ok}:{...ok,gauge:'fail'},result:res?'pass':'fail',notes:res?'':'เข็มอยู่โซนแดง แจ้งเติมสาร',inspector:'สมชาย ใจดี',photo:''});
+ const ok=Object.fromEntries(CHECKS.map(([k])=>[k,'pass']));const ins=(id,d,res)=>I.push({id:newId(),synced:false,ts:Date.now()+Math.random()*1e6|0,extId:id,date:addDays(t,d),items:res?{...ok}:{...ok,gauge:'fail'},result:res?'pass':'fail',notes:res?'':'เข็มอยู่โซนแดง แจ้งเติมสาร',inspector:'สมชาย ใจดี',photo:''});
  ins('FE-A-01-001',-3,1);ins('FE-A-01-002',-26,1);ins('FE-A-02-001',-45,1);ins('FE-B-01-001',-10,0);ins('FE-B-02-001',-1,1);save(KEY_E,E);save(KEY_I,I)}
 
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ---------- Google Sheets sync ----------
+let syncing=false,syncTimer=null;
+const b64e=s=>btoa(unescape(encodeURIComponent(s))),b64d=s=>decodeURIComponent(escape(atob(s)));
+function inviteLink(){return location.origin+location.pathname+'#setup='+encodeURIComponent(b64e(JSON.stringify({u:S.url,k:S.key})))}
+function acceptSetup(raw){try{const o=JSON.parse(b64d(decodeURIComponent(raw)));if(!/^(https:\/\/|http:\/\/localhost)/.test(o.u)||!o.k)throw 0;
+  if(confirm('ตั้งค่าซิงก์ข้อมูลทีมกับ Google Sheets นี้?\n'+o.u)){S.url=o.u;S.key=o.k;S.lastSync=0;save(KEY_S,S);location.replace('#/data');sync(true)}else location.replace('#/')}
+ catch{alert('ลิงก์เชิญไม่ถูกต้อง');location.replace('#/')}}
+const pending=()=>E.filter(e=>e.dirty).length+T.filter(t=>t.dirty).length+I.filter(i=>!i.synced).length;
+function setSync(msg,ok){S.syncMsg=msg;S.syncOk=ok;save(KEY_S,S);showSync()}
+function showSync(){const el=$('#syncinfo');if(!el)return;el.innerHTML=`สถานะ: <span class="${S.syncOk?'green':S.syncMsg?'red':'gray'}">${esc(S.syncMsg||(S.url?'ยังไม่ได้ซิงก์':'ยังไม่ได้ตั้งค่า'))}</span><br>ซิงก์ล่าสุด: ${S.lastSync?new Date(S.lastSync).toLocaleString('th-TH'):'-'} · รอส่ง: ${pending()} รายการ`}
+function scheduleSync(){clearTimeout(syncTimer);syncTimer=setTimeout(()=>sync(),800)}
+async function api(body){const r=await fetch(S.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:S.key,...body}),redirect:'follow'});
+ const j=await r.json();if(!j.ok)throw new Error(j.error==='invalid key'?'รหัสทีมไม่ถูกต้อง':j.error);return j}
+const clean=o=>{const x={...o};delete x.dirty;delete x.synced;return x};
+async function sync(manual){if(!S.url||!S.key){if(manual)alert('กรุณาตั้งค่า Web App URL และรหัสทีม');return}
+ if(!navigator.onLine){setSync('ออฟไลน์ — จะส่งข้อมูลเมื่อกลับมาออนไลน์',false);return}
+ if(syncing){scheduleSync();return}syncing=true;setSync('กำลังซิงก์...',true);
+ try{const up=I.filter(i=>!i.synced);
+  for(let n=0;n<up.length;n+=5){const batch=up.slice(n,n+5);await api({action:'appendInspections',inspections:batch.map(clean)});batch.forEach(i=>i.synced=true);save(KEY_I,I)}
+  const sent=[...E.filter(e=>e.dirty).map(clean),...T.filter(t=>t.dirty).map(t=>({id:t.id,deleted:1,updatedAt:t.updatedAt}))];
+  const res=await api({action:'sync',extinguishers:sent,inspections:[]});merge(res);
+  S.lastSync=Date.now();setSync('ซิงก์สำเร็จ ✓ ('+E.length+' ถัง, '+I.length+' การตรวจ)',true);
+  const p=(location.hash.split('/')[1]||'');if(['','list','ext','qr'].includes(p)&&!location.hash.startsWith('#id'))route();
+ }catch(err){setSync('ซิงก์ไม่สำเร็จ: '+(err.message||err),false)}finally{syncing=false}}
+function merge(res){const L=new Map(E.map(e=>[e.id,e])),TM=new Map(T.map(t=>[t.id,t]));
+ for(const s of res.extinguishers||[]){const id=String(s.id),l=L.get(id),t=TM.get(id),lu=Math.max(l?.updatedAt||0,t?.updatedAt||0),su=Number(s.updatedAt)||0;
+  if(su<lu)continue;
+  if(Number(s.deleted)){L.delete(id);TM.set(id,{id,updatedAt:su})}else{const x={...s,id,updatedAt:su};delete x.deleted;L.set(id,x);TM.delete(id)}}
+ E=[...L.values()];T=[...TM.values()];
+ const LI=new Map(I.map(i=>[String(i.id),i]));
+ for(const s of res.inspections||[]){const l=LI.get(String(s.id));if(l){l.synced=true;if(s.photoUrl)l.photoUrl=s.photoUrl}else I.push({...s,id:String(s.id),ts:Number(s.ts)||Date.parse(s.date)||0,synced:true,photo:''})}
+ save(KEY_E,E);save(KEY_T,T);save(KEY_I,I)}
+addEventListener('online',()=>sync());
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-(S.lastSync||0)>60000)sync()});
+
 route();
+if(!location.hash.startsWith('#setup='))sync();
