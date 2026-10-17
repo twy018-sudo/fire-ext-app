@@ -166,7 +166,7 @@ function demo(){const t=today();const add=(id,b,f,s,ty,sz,u,exp)=>{if(!findE(id)
  const ok=Object.fromEntries(CHECKS.map(([k])=>[k,'pass']));const ins=(id,d,res)=>I.push({id:newId(),synced:false,ts:Date.now()+Math.random()*1e6|0,extId:id,date:addDays(t,d),items:res?{...ok}:{...ok,gauge:'fail'},result:res?'pass':'fail',notes:res?'':'เข็มอยู่โซนแดง แจ้งเติมสาร',inspector:'สมชาย ใจดี',photo:''});
  ins('FE-A-01-001',-3,1);ins('FE-A-01-002',-26,1);ins('FE-A-02-001',-45,1);ins('FE-B-01-001',-10,0);ins('FE-B-02-001',-1,1);save(KEY_E,E);save(KEY_I,I)}
 
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){let h=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(h)location.reload();h=true});navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{})}
 
 // ---------- Google Sheets sync ----------
 let syncing=false,syncTimer=null;
