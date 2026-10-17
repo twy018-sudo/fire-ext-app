@@ -10,7 +10,7 @@ var CHECK_KEYS = ['gauge','pin','hose','body','access','sign','label','weight'];
 var EXT_COLS = [
   ['id','รหัส / ID'],['building','อาคาร / Building'],['floor','ชั้น / Floor'],['spot','ตำแหน่ง / Location'],
   ['type','ชนิด / Type'],['size','ขนาด / Size'],['unit','หน่วย / Unit'],['install','วันติดตั้ง / Install date'],
-  ['expiry','วันหมดอายุ / Expiry'],['note','หมายเหตุ / Note'],['updatedAt','แก้ไขล่าสุด / Updated (ms)'],['deleted','ลบแล้ว / Deleted']];
+  ['expiry','วันหมดอายุ / Expiry'],['note','หมายเหตุ / Note'],['updatedAt','แก้ไขล่าสุด / Updated (ms)'],['deleted','ลบแล้ว / Deleted'],['photoUrl','รูปถัง / Photo']];
 var INS_COLS = [
   ['id','รหัสการตรวจ / Inspection ID'],['extId','รหัสถัง / Extinguisher ID'],['date','วันที่ตรวจ / Date'],
   ['result','ผลรวม / Result'],['inspector','ผู้ตรวจ / Inspector'],['notes','หมายเหตุ / Notes'],
@@ -51,6 +51,8 @@ function sheet_(name, cols) {
     sh.getRange(1, 1, 1, cols.length).setValues([cols.map(function (c) { return c[1]; })]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@'); // เก็บเป็นข้อความ (กันวันที่/เลข 0 นำหน้าเพี้ยน)
+  } else if (sh.getLastColumn() < cols.length) { // อัปเกรด: เพิ่มหัวคอลัมน์ใหม่
+    sh.getRange(1, 1, 1, cols.length).setValues([cols.map(function (c) { return c[1]; })]).setFontWeight('bold');
   }
   return sh;
 }
@@ -83,6 +85,9 @@ function upsertExt_(list, force) {
     var base = i !== undefined ? cur[i] : {};
     if (force && i === undefined) return;
     var merged = (force || Number(x.deleted)) ? Object.assign({}, base, { deleted: 1, updatedAt: x.updatedAt }) : x;
+    if (!merged.photoUrl && merged.photo && String(merged.photo).indexOf('data:image') === 0)
+      merged.photoUrl = savePhoto_({ photo: merged.photo }, 'ext_' + merged.id + '_' + merged.updatedAt + '.jpg');
+    else if (!merged.photoUrl && !merged.photoRemoved && base.photoUrl) merged.photoUrl = base.photoUrl;
     var row = EXT_COLS.map(function (c) { return c[0] === 'deleted' ? (merged.deleted ? '1' : '0') : cell_(merged[c[0]]); });
     if (i !== undefined) { writeRow_(sh, i + 2, row); cur[i] = merged; }
     else { writeRow_(sh, sh.getLastRow() + 1, row); idx[String(x.id)] = cur.length; cur.push(merged); }
@@ -110,13 +115,13 @@ function appendIns_(list) {
   });
   return added;
 }
-function savePhoto_(x) {
+function savePhoto_(x, name) {
   try {
     var it = DriveApp.getFoldersByName(PHOTO_FOLDER_NAME);
     var folder = it.hasNext() ? it.next() : DriveApp.createFolder(PHOTO_FOLDER_NAME);
     var m = String(x.photo).match(/^data:(image\/\w+);base64,(.*)$/);
     if (!m) return '';
-    var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], x.extId + '_' + x.date + '_' + x.id + '.jpg');
+    var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], name || (x.extId + '_' + x.date + '_' + x.id + '.jpg'));
     var f = folder.createFile(blob);
     try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {} // อาจถูกจำกัดในบัญชีองค์กร
     return f.getUrl();

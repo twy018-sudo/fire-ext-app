@@ -38,7 +38,7 @@ async function route(){await stopScan();let h=location.hash||'#/';
  ({'':dash,list,new:()=>edit(),edit:()=>edit(a),ext:()=>detail(a),inspect:()=>inspect(a),scan,qr:()=>qr(a),data,view:()=>viewIns(a)}[p]||dash)();}
 addEventListener('hashchange',route);
 
-function card(e){const s=status(e);return `<a class="item card" href="#/ext/${encodeURIComponent(e.id)}"><div class="row"><b>${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
+function card(e){const s=status(e);return `<a class="item card" href="#/ext/${encodeURIComponent(e.id)}">${photoHtml(e,1)}<div class="row"><b>${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
 <div class="small">${esc(loc(e))||'-'}</div><div class="small">${esc(e.type||'')} ${e.size?esc(e.size)+' '+esc(e.unit):''}</div>
 <div class="small">ตรวจล่าสุด: ${s.last?thDate(s.last.date)+(s.last.result==='pass'?' ✅':' ❌'):'-'} · ครบกำหนด: ${s.due?thDate(s.due):'ทันที'}${e.expiry?' · หมดอายุ: '+thDate(e.expiry):''}</div></a>`}
 
@@ -66,9 +66,12 @@ function edit(id){const e=id?findE(id):null;if(id&&!e)return notFound(id);setTit
 <label>วันที่ติดตั้ง</label><input name="install" type="date" value="${esc(v.install)}">
 <label>วันหมดอายุ / ครบกำหนดเติมสาร</label><input name="expiry" type="date" value="${esc(v.expiry)}">
 <label>หมายเหตุ</label><textarea name="note" rows="2">${esc(v.note)}</textarea>
+<label>รูปถังดับเพลิง (ไม่บังคับ)</label><input type="file" id="eph" accept="image/*" capture="environment"><div id="epv">${photoHtml(v)}</div>${v.photo||v.photoUrl?'<button type="button" class="btn sec" id="erm">ลบรูป</button>':''}
 <button class="btn ok full">💾 บันทึก</button>${e?'<button type="button" id="del" class="btn full">🗑 ลบถังนี้</button>':''}</form>`;
+ let newPhoto;$('#eph').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;newPhoto=await shrink(f,640);$('#epv').innerHTML=`<img class="photo" src="${newPhoto}">`};
+ if($('#erm'))$('#erm').onclick=()=>{newPhoto='';$('#epv').innerHTML='<p class="small">จะลบรูปเมื่อกดบันทึก</p>'};
  $('#f').onsubmit=ev=>{ev.preventDefault();const o=Object.fromEntries(new FormData(ev.target));o.id=o.id.trim();
-  if(!e&&findE(o.id))return alert('รหัสนี้มีอยู่แล้ว');o.updatedAt=Date.now();o.dirty=1;if(e)Object.assign(e,o);else E.push(o);T=T.filter(t=>t.id!==o.id);save(KEY_E,E);save(KEY_T,T);scheduleSync();location.replace('#/ext/'+encodeURIComponent(o.id))};
+  if(!e&&findE(o.id))return alert('รหัสนี้มีอยู่แล้ว');if(newPhoto!==undefined){o.photo=newPhoto;o.photoUrl='';o.photoRemoved=newPhoto?0:1}o.updatedAt=Date.now();o.dirty=1;if(e)Object.assign(e,o);else E.push(o);T=T.filter(t=>t.id!==o.id);save(KEY_E,E);save(KEY_T,T);scheduleSync();location.replace('#/ext/'+encodeURIComponent(o.id))};
  if(e)$('#del').onclick=()=>{if(confirm('ลบถัง '+e.id+'? (จะลบในทีมด้วยเมื่อซิงก์)')){E=E.filter(x=>x!==e);T=T.filter(t=>t.id!==e.id);T.push({id:e.id,updatedAt:Date.now(),dirty:1});save(KEY_E,E);save(KEY_T,T);scheduleSync();location.replace('#/list')}}}
 
 function notFound(id){setTitle('ไม่พบข้อมูล',1);app.innerHTML=`<div class="card">ไม่พบถังรหัส <b>${esc(id)}</b> ในเครื่องนี้<br><a class="btn" href="#/new">+ เพิ่มถังใหม่</a></div>`;
@@ -76,7 +79,7 @@ function notFound(id){setTitle('ไม่พบข้อมูล',1);app.innerH
 
 function detail(id){const e=findE(id);if(!e)return notFound(id);setTitle('ถัง '+e.id,1);const s=status(e),h=insOf(id);
  app.innerHTML=`<div class="card"><div class="row"><b style="font-size:20px">${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
-<p>📍 ${esc(loc(e))||'-'}<br>🧯 ${esc(e.type)} ${e.size?esc(e.size)+' '+esc(e.unit):''}<br>ติดตั้ง: ${thDate(e.install)}<br>หมดอายุ/เติมสาร: ${thDate(e.expiry)}<br>ครบกำหนดตรวจ: ${s.due?thDate(s.due):'ทันที'}${e.note?'<br>หมายเหตุ: '+esc(e.note):''}</p>
+<p>📍 ${esc(loc(e))||'-'}<br>🧯 ${esc(e.type)} ${e.size?esc(e.size)+' '+esc(e.unit):''}<br>ติดตั้ง: ${thDate(e.install)}<br>หมดอายุ/เติมสาร: ${thDate(e.expiry)}<br>ครบกำหนดตรวจ: ${s.due?thDate(s.due):'ทันที'}${e.note?'<br>หมายเหตุ: '+esc(e.note):''}</p>${photoHtml(e)}
 <div id="qr" style="display:flex;justify-content:center"></div>
 <a class="btn ok" href="#/inspect/${encodeURIComponent(id)}">✅ ตรวจประจำเดือน</a><a class="btn sec" href="#/edit/${encodeURIComponent(id)}">✏️ แก้ไข</a><a class="btn sec" href="#/qr/${encodeURIComponent(id)}">🖨 พิมพ์ QR</a></div>
 <h3>ประวัติการตรวจ (${h.length})</h3>${h.map(i=>`<a class="item card" href="#/view/${i.ts}"><div class="row"><b>${thDate(i.date)}</b>${i.result==='pass'?'<span class="badge green">ผ่าน</span>':'<span class="badge red">ไม่ผ่าน</span>'}</div><div class="small">ผู้ตรวจ: ${esc(i.inspector)}${i.notes?' · '+esc(i.notes):''}${i.photo||i.photoUrl?' · 📷':''}${i.synced?'':' · ⏳'}</div></a>`).join('')||'<p class="gray">ยังไม่มีประวัติ</p>'}`;
@@ -108,7 +111,11 @@ ${CHECKS.map(([k,t],n)=>`<div class="chk"><span>${n+1}. ${t}</span><div class="p
  $('#sv').onclick=()=>{if(Object.keys(items).length<CHECKS.length)return alert('กรุณาตรวจให้ครบทุกข้อ');const ins=$('#insp').value.trim();if(!ins)return alert('กรุณากรอกชื่อผู้ตรวจ');
   S.inspector=ins;save(KEY_S,S);const rec={id:newId(),ts:Date.now(),synced:false,extId:id,date:today(),items:{...items},result:Object.values(items).every(x=>x==='pass')?'pass':'fail',notes:$('#notes').value.trim(),inspector:ins,photo};
   I.push(rec);if(!save(KEY_I,I)){I.pop();return}scheduleSync();alert('บันทึกแล้ว: '+(rec.result==='pass'?'ผ่าน':'ไม่ผ่าน'));location.replace('#/ext/'+encodeURIComponent(id))}}
-function shrink(f){return new Promise(res=>{const img=new Image();img.onload=()=>{const m=800,k=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',0.6))};img.src=URL.createObjectURL(f)})}
+function driveThumb(u){const m=String(u||'').match(/\/d\/([\w-]+)/)||String(u||'').match(/[?&]id=([\w-]+)/);return m?'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w600':''}
+function photoHtml(e,thumb){const cls=thumb?'thumb':'photo';if(e.photo)return `<img class="${cls}" src="${e.photo}" alt="">`;
+ if(e.photoUrl&&/^https:/.test(e.photoUrl)){const t=driveThumb(e.photoUrl);if(thumb)return t?`<img class="thumb" src="${esc(t)}" alt="" loading="lazy" onerror="this.remove()">`:'';
+  return `${t?`<img class="photo" src="${esc(t)}" alt="" onerror="this.remove()">`:''}<a class="small" target="_blank" rel="noopener" href="${esc(e.photoUrl)}">📷 เปิดรูปใน Google Drive</a>`}return ''}
+function shrink(f,max=800){return new Promise(res=>{const img=new Image();img.onload=()=>{const m=max,k=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',0.6))};img.src=URL.createObjectURL(f)})}
 
 function scan(){setTitle('สแกน QR');app.innerHTML=`<div class="card"><div id="reader"></div><p class="small" id="msg">กำลังเปิดกล้อง... (ต้องอนุญาตการใช้กล้อง)</p>
 <label>หรือพิมพ์รหัสถัง</label><div class="row"><input id="mid" list="ids"><button class="btn" id="go">ไป</button></div><datalist id="ids">${E.map(e=>`<option value="${esc(e.id)}">`).join('')}</datalist></div>`;
@@ -180,15 +187,17 @@ async function sync(manual){if(!S.url||!S.key){if(manual)alert('กรุณา�
  if(syncing){scheduleSync();return}syncing=true;setSync('กำลังซิงก์...',true);
  try{const up=I.filter(i=>!i.synced);
   for(let n=0;n<up.length;n+=5){const batch=up.slice(n,n+5);await api({action:'appendInspections',inspections:batch.map(clean)});batch.forEach(i=>i.synced=true);save(KEY_I,I)}
-  const sent=[...E.filter(e=>e.dirty).map(clean),...T.filter(t=>t.dirty).map(t=>({id:t.id,deleted:1,updatedAt:t.updatedAt}))];
+  const sent=[...E.filter(e=>e.dirty||(e.photo&&!e.photoUrl&&S.extPhoto!==false)).map(e=>{const x=clean(e);if(x.photoUrl||!x.photo)delete x.photo;return x}),...T.filter(t=>t.dirty).map(t=>({id:t.id,deleted:1,updatedAt:t.updatedAt}))];
   const res=await api({action:'sync',extinguishers:sent,inspections:[]});merge(res);
   S.lastSync=Date.now();setSync('ซิงก์สำเร็จ ✓ ('+E.length+' ถัง, '+I.length+' การตรวจ)',true);
   const p=(location.hash.split('/')[1]||'');if(['','list','ext','qr'].includes(p)&&!location.hash.startsWith('#id'))route();
  }catch(err){setSync('ซิงก์ไม่สำเร็จ: '+(err.message||err),false)}finally{syncing=false}}
-function merge(res){const L=new Map(E.map(e=>[e.id,e])),TM=new Map(T.map(t=>[t.id,t]));
+function merge(res){const rows=res.extinguishers||[];if(rows.length)S.extPhoto=rows.some(r=>'photoUrl' in r);const L=new Map(E.map(e=>[e.id,e])),TM=new Map(T.map(t=>[t.id,t]));
  for(const s of res.extinguishers||[]){const id=String(s.id),l=L.get(id),t=TM.get(id),lu=Math.max(l?.updatedAt||0,t?.updatedAt||0),su=Number(s.updatedAt)||0;
   if(su<lu)continue;
-  if(Number(s.deleted)){L.delete(id);TM.set(id,{id,updatedAt:su})}else{const x={...s,id,updatedAt:su};delete x.deleted;L.set(id,x);TM.delete(id)}}
+  if(Number(s.deleted)){L.delete(id);TM.set(id,{id,updatedAt:su})}else{const x={...s,id,updatedAt:su};delete x.deleted;
+   if(l){if(!('photoUrl' in s)){x.photo=l.photo;x.photoUrl=l.photoUrl;x.photoRemoved=l.photoRemoved}else if(l.photo&&!l.photoRemoved&&(s.photoUrl===l.photoUrl||su===l.updatedAt||/^ERROR/.test(s.photoUrl)))x.photo=l.photo}
+   if(!x.photoUrl)delete x.photoRemoved;L.set(id,x);TM.delete(id)}}
  E=[...L.values()];T=[...TM.values()];
  const LI=new Map(I.map(i=>[String(i.id),i]));
  for(const s of res.inspections||[]){const l=LI.get(String(s.id));if(l){l.synced=true;if(s.photoUrl)l.photoUrl=s.photoUrl}else I.push({...s,id:String(s.id),ts:Number(s.ts)||Date.parse(s.date)||0,synced:true,photo:''})}

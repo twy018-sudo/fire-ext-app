@@ -31,3 +31,4 @@ img.photo{max-width:100%;border-radius:8px;margin-top:6px}
 @media print{@page{size:A4;margin:10mm}body{background:#fff;padding:0}.no-print{display:none!important}main{padding:0;max-width:none}
 .qrsheet{grid-template-columns:repeat(4,minmax(0,1fr));gap:4mm;padding:0}.qrlabel .qr img,.qrlabel .qr canvas{width:38mm!important;height:38mm!important}}
 code{word-break:break-all}
+.thumb{float:right;width:56px;height:56px;object-fit:cover;border-radius:6px;margin-left:8px}
