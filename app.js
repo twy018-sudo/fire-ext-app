@@ -1,6 +1,6 @@
 'use strict';
 const KEY_T='fe_tombstones',KEY_E='fe_extinguishers',KEY_I='fe_inspections',KEY_S='fe_settings';
-const TYPES=['CO2 (คาร์บอนไดออกไซด์)','ผงเคมีแห้ง (Dry Chemical)','โฟม (Foam)','น้ำ (Water)','สารสะอาด (Clean Agent / Halotron)','เคมีเปียก (Wet Chemical / Class K)','อื่นๆ'];
+const TYPES=['CO2 (คาร์บอนไดออกไซด์)','ผงเคมีแห้ง (Dry Chemical)','โฟม (Foam)','น้ำ (Water)','สารสะอาด (Clean Agent / Halotron)','Fireaid 2000','อื่นๆ'];
 const CHECKS=[['gauge','เข็มเกจวัดแรงดันอยู่ในโซนสีเขียว'],['pin','สลักนิรภัยและซีลอยู่ในสภาพสมบูรณ์'],['hose','สายฉีดและหัวฉีดอยู่ในสภาพดี ไม่แตก/อุดตัน'],['body','ตัวถังไม่มีสนิม ไม่บุบ ไม่เสียหาย'],['access','ติดตั้งในที่เข้าถึงง่าย ไม่มีสิ่งกีดขวาง'],['sign','ป้ายสัญลักษณ์มองเห็นชัดเจน'],['label','ฉลาก/คำแนะนำการใช้อ่านได้ชัดเจน'],['weight','น้ำหนักถังปกติ (ยกแล้วไม่เบาผิดปกติ)']];
 const INTERVAL=30,SOON=7,EXP_SOON=60;
 const $=s=>document.querySelector(s),app=$('#app');
