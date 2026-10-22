@@ -32,3 +32,5 @@ img.photo{max-width:100%;border-radius:8px;margin-top:6px}
 .qrsheet{grid-template-columns:repeat(4,minmax(0,1fr));gap:4mm;padding:0}.qrlabel .qr img,.qrlabel .qr canvas{width:38mm!important;height:38mm!important}}
 code{word-break:break-all}
 .thumb{float:right;width:56px;height:56px;object-fit:cover;border-radius:6px;margin-left:8px}
+
+.banner{display:block;width:100%;max-width:420px;margin:0 auto 12px;border-radius:12px}

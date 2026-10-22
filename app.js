@@ -45,7 +45,7 @@ function card(e){const s=status(e);return `<a class="item card" href="#/ext/${en
 function dash(){setTitle('แดชบอร์ด');const st=E.map(e=>[e,status(e)]);
  const over=st.filter(([,s])=>s.insp==='overdue'||s.insp==='never'),soon=st.filter(([,s])=>s.insp==='soon'),exp=st.filter(([,s])=>s.exp==='expired'||s.exp==='soon');
  const month=today().slice(0,7),done=new Set(I.filter(i=>i.date.startsWith(month)).map(i=>i.extId)).size,failed=st.filter(([,s])=>s.last&&s.last.result==='fail');
- app.innerHTML=`<div class="stats"><div class="stat"><b>${E.length}</b>ถังทั้งหมด</div><div class="stat"><b class="green">${done}</b>ตรวจแล้วเดือนนี้</div>
+ app.innerHTML=`<img class="banner" src="img/banner.jpg" alt="Nana Plaza, Sukhumvit Soi 4, Bangkok"><div class="stats"><div class="stat"><b>${E.length}</b>ถังทั้งหมด</div><div class="stat"><b class="green">${done}</b>ตรวจแล้วเดือนนี้</div>
 <div class="stat"><b class="red">${over.length}</b>เลยกำหนด/ยังไม่ตรวจ</div><div class="stat"><b class="orange">${exp.length}</b>หมดอายุ/ใกล้หมด</div></div>
 <a class="btn full" href="#/scan">📷 สแกน QR เพื่อตรวจ</a>
 ${E.length?'':`<div class="card">ยังไม่มีข้อมูลถังดับเพลิง <a href="#/new">+ เพิ่มถังแรก</a> หรือ <a href="#" id="demo">โหลดข้อมูลตัวอย่าง</a></div>`}
