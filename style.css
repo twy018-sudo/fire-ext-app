@@ -53,5 +53,9 @@ code{word-break:break-all}
 .catbtn:active{transform:scale(.97);background:#fafafa}
 .catbtn.cat-light{border-top-color:#f9a825}.catbtn.cat-exit{border-top-color:#2e7d32}.catbtn.cat-hose{border-top-color:#1565c0}
 .catbtn .ci{font-size:30px;line-height:1}.catbtn .cn{font-size:18px;font-weight:bold;margin:2px 0 3px;line-height:1.2}
-.catbtn .cc{display:grid;grid-template-columns:1fr 1fr;gap:0 6px;font-size:12px;line-height:1.2;color:#666;width:100%}
-.catbtn .cc b{font-size:13.5px;color:#222}.catbtn .cc .hot,.catbtn .cc .hot b{color:#c62828;font-weight:bold}
+.catbtn .cc{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%;margin-top:2px}
+.catbtn .cc>span{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f6f7f9;border-radius:8px;padding:3px 2px 2px;min-width:0}
+.catbtn .cc small{font-size:11px;line-height:1.25;color:#666;white-space:nowrap}
+.catbtn .cc b{font-size:20px;line-height:1.15;font-weight:bold}
+.catbtn .cc .hot{background:#ffebee}.catbtn .cc .hot small{color:#c62828}
+.catbtn .cc b{color:#222}.catbtn .cc b.green{color:#2e7d32}.catbtn .cc .hot,.catbtn .cc .hot b{color:#c62828;font-weight:bold}
