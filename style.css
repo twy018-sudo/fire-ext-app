@@ -64,3 +64,9 @@ code{word-break:break-all}
 .stats.mini .stat{padding:6px 3px 5px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-width:0}
 .stats.mini .stat small{display:block;font-size:11.5px;line-height:1.25;color:#555;min-height:2.5em;text-align:center}
 .stats.mini .stat b{font-size:20px;line-height:1.2;margin-top:2px}
+
+.btn.scanbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:84px;padding:10px 12px;margin:0 0 10px;border-radius:12px;box-shadow:0 2px 5px #0003;line-height:1.2}
+.scanbtn .s1{display:flex;align-items:center;justify-content:center;gap:10px;font-size:22px;font-weight:bold}
+.scanbtn .si{font-size:28px;line-height:1}
+.scanbtn .s2{font-size:15px;margin-top:7px;opacity:.95}
+.btn.scanbtn:active{transform:scale(.98)}
