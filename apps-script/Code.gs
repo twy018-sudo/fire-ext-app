@@ -1,22 +1,27 @@
 /**
- * Fire Extinguisher Inspection – Google Sheets sync API
+ * Fire Safety Equipment Inspection (ถังดับเพลิง/ไฟฉุกเฉิน/ป้ายทางหนีไฟ/ตู้สายฉีด) – Google Sheets sync API
  * วิธีใช้: วางไฟล์นี้ใน Extensions > Apps Script ของ Google Sheet แล้ว Deploy เป็น Web app
  * (Execute as: Me, Who has access: Anyone)
  */
 var TEAM_KEY = 'CHANGE-ME-1234';           // <-- เปลี่ยนเป็นรหัสทีมของคุณ (ห้ามเผยแพร่)
 var PHOTO_FOLDER_NAME = 'FireExt Photos';  // โฟลเดอร์ใน Google Drive สำหรับเก็บรูป
+// อุปกรณ์: ถังดับเพลิง (ext), ไฟฉุกเฉิน (light), ป้ายทางหนีไฟ (exit), ตู้สายฉีดน้ำดับเพลิง (hose)
+// ความเข้ากันได้: category ว่าง = ถังดับเพลิง; คอลัมน์ใหม่ต่อท้ายเสมอ (ไม่สลับลำดับ) และเพิ่มหัวคอลัมน์ให้ชีตเดิมอัตโนมัติ
 
 var CHECK_KEYS = ['gauge','pin','hose','body','access','sign','label','weight'];
 var EXT_COLS = [
   ['id','รหัส / ID'],['building','อาคาร / Building'],['floor','ชั้น / Floor'],['spot','ตำแหน่ง / Location'],
   ['type','ชนิด / Type'],['size','ขนาด / Size'],['unit','หน่วย / Unit'],['install','วันติดตั้ง / Install date'],
-  ['expiry','วันหมดอายุ / Expiry'],['note','หมายเหตุ / Note'],['updatedAt','แก้ไขล่าสุด / Updated (ms)'],['deleted','ลบแล้ว / Deleted'],['photoUrl','รูปถัง / Photo']];
+  ['expiry','วันหมดอายุ / Expiry'],['note','หมายเหตุ / Note'],['updatedAt','แก้ไขล่าสุด / Updated (ms)'],['deleted','ลบแล้ว / Deleted'],['photoUrl','รูปถัง / Photo'],
+  ['category','ประเภทอุปกรณ์ / Category (ext,light,exit,hose)']];
+var CATEGORIES = ['ext', 'light', 'exit', 'hose'];
 var INS_COLS = [
   ['id','รหัสการตรวจ / Inspection ID'],['extId','รหัสถัง / Extinguisher ID'],['date','วันที่ตรวจ / Date'],
   ['result','ผลรวม / Result'],['inspector','ผู้ตรวจ / Inspector'],['notes','หมายเหตุ / Notes'],
   ['gauge','เกจแรงดัน / Gauge'],['pin','สลักและซีล / Pin & seal'],['hose','สายและหัวฉีด / Hose'],
   ['body','ตัวถัง / Body'],['access','การเข้าถึง / Access'],['sign','ป้าย / Signage'],
-  ['label','ฉลาก / Label'],['weight','น้ำหนัก / Weight'],['photoUrl','รูปภาพ / Photo'],['ts','เวลา / Timestamp (ms)']];
+  ['label','ฉลาก / Label'],['weight','น้ำหนัก / Weight'],['photoUrl','รูปภาพ / Photo'],['ts','เวลา / Timestamp (ms)'],
+  ['category','ประเภทอุปกรณ์ / Category'],['checks','รายการตรวจ (JSON) / Checks']];
 
 function doGet(e) { return handle_((e && e.parameter) || {}); }
 function doPost(e) {
@@ -51,8 +56,11 @@ function sheet_(name, cols) {
     sh.getRange(1, 1, 1, cols.length).setValues([cols.map(function (c) { return c[1]; })]).setFontWeight('bold');
     sh.setFrozenRows(1);
     sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@'); // เก็บเป็นข้อความ (กันวันที่/เลข 0 นำหน้าเพี้ยน)
-  } else if (sh.getLastColumn() < cols.length) { // อัปเกรด: เพิ่มหัวคอลัมน์ใหม่
-    sh.getRange(1, 1, 1, cols.length).setValues([cols.map(function (c) { return c[1]; })]).setFontWeight('bold');
+  } else if (sh.getLastColumn() < cols.length) { // อัปเกรด: เพิ่มหัวคอลัมน์ใหม่ต่อท้าย (ไม่แตะคอลัมน์เดิม)
+    var have = sh.getLastColumn();
+    if (sh.getMaxColumns && sh.getMaxColumns() < cols.length) sh.insertColumnsAfter(sh.getMaxColumns(), cols.length - sh.getMaxColumns());
+    sh.getRange(1, have + 1, 1, cols.length - have).setValues([cols.slice(have).map(function (c) { return c[1]; })]).setFontWeight('bold');
+    sh.getRange(1, have + 1, sh.getMaxRows(), cols.length - have).setNumberFormat('@');
   }
   return sh;
 }
@@ -71,6 +79,7 @@ function writeRow_(sh, r, row) { sh.getRange(r, 1, 1, row.length).setNumberForma
 
 function readExt_() {
   return rows_(sheet_('Extinguishers', EXT_COLS), EXT_COLS).filter(function (o) { return o.id; }).map(function (o) {
+    if (CATEGORIES.indexOf(o.category) < 0) o.category = ''; // ว่าง = ถังดับเพลิง
     o.updatedAt = Number(o.updatedAt) || 0; o.deleted = o.deleted === '1' || o.deleted === 'true' ? 1 : 0; return o;
   });
 }
@@ -85,6 +94,9 @@ function upsertExt_(list, force) {
     var base = i !== undefined ? cur[i] : {};
     if (force && i === undefined) return;
     var merged = (force || Number(x.deleted)) ? Object.assign({}, base, { deleted: 1, updatedAt: x.updatedAt }) : x;
+    // แอปเวอร์ชันเก่าไม่ส่ง category -> คงค่าเดิมในชีตไว้
+    if (merged.category === undefined || merged.category === null) merged.category = base.category || '';
+    if (CATEGORIES.indexOf(String(merged.category)) < 0) merged.category = '';
     if (!merged.photoUrl && merged.photo && String(merged.photo).indexOf('data:image') === 0)
       merged.photoUrl = savePhoto_({ photo: merged.photo }, 'ext_' + merged.id + '_' + merged.updatedAt + '.jpg');
     else if (!merged.photoUrl && !merged.photoRemoved && base.photoUrl) merged.photoUrl = base.photoUrl;
@@ -99,22 +111,41 @@ function upsertExt_(list, force) {
 function readIns_() {
   return rows_(sheet_('Inspections', INS_COLS), INS_COLS).filter(function (o) { return o.id; }).map(function (o) {
     var items = {}; CHECK_KEYS.forEach(function (k) { items[k] = o[k]; delete o[k]; });
+    var parsed = parseChecks_(o.checks);
+    if (parsed) items = parsed; // รูปแบบใหม่: JSON ของทุกประเภท; แถวเก่าใช้คอลัมน์รายข้อเหมือนเดิม
+    if (CATEGORIES.indexOf(o.category) < 0) o.category = '';
     o.items = items; o.ts = Number(o.ts) || 0; return o;
   });
 }
+function parseChecks_(s) {
+  if (!s) return null;
+  try { var o = JSON.parse(s); return o && typeof o === 'object' && !Array.isArray(o) ? o : null; } catch (e) { return null; }
+}
 function appendIns_(list) {
   var sh = sheet_('Inspections', INS_COLS), n = sh.getLastRow() - 1, have = {}, added = 0;
-  if (n > 0) sh.getRange(2, 1, n, 1).getValues().forEach(function (r) { have[String(r[0])] = 1; });
+  var cCat = colIdx_(INS_COLS, 'category'), cChk = colIdx_(INS_COLS, 'checks');
+  if (n > 0) sh.getRange(2, 1, n, INS_COLS.length).getValues().forEach(function (r, i) { have[String(r[0])] = { row: i + 2, cat: cell_(r[cCat]), chk: cell_(r[cChk]) }; });
   list.forEach(function (x) {
-    if (!x || !x.id || have[String(x.id)]) return; // idempotent
+    if (!x || !x.id) return;
+    var h = have[String(x.id)];
+    if (h) { // idempotent; แต่เติม category/checks ที่หายไป (ส่งตอนสคริปต์ยังเป็นเวอร์ชันเก่า)
+      if (x.items && typeof x.items === 'object' && (!h.chk || (!h.cat && x.category))) {
+        sh.getRange(h.row, cCat + 1, 1, 2).setNumberFormat('@').setValues([[cell_(catOf_(x.category)), JSON.stringify(x.items)]]);
+        h.cat = catOf_(x.category); h.chk = '1';
+      }
+      return;
+    }
     var photoUrl = x.photoUrl || '';
     if (!photoUrl && x.photo && String(x.photo).indexOf('data:image') === 0) photoUrl = savePhoto_(x);
-    var o = Object.assign({}, x, x.items || {}, { photoUrl: photoUrl });
+    var o = Object.assign({}, x, x.items || {}, { photoUrl: photoUrl, category: catOf_(x.category),
+      checks: x.items && typeof x.items === 'object' ? JSON.stringify(x.items) : '' });
     writeRow_(sh, sh.getLastRow() + 1, INS_COLS.map(function (c) { return cell_(o[c[0]]); }));
-    have[String(x.id)] = 1; added++;
+    have[String(x.id)] = { row: sh.getLastRow(), cat: o.category, chk: o.checks }; added++;
   });
   return added;
 }
+function colIdx_(cols, key) { for (var i = 0; i < cols.length; i++) if (cols[i][0] === key) return i; return -1; }
+function catOf_(c) { return CATEGORIES.indexOf(String(c || '')) >= 0 ? String(c) : ''; }
 function savePhoto_(x, name) {
   try {
     var it = DriveApp.getFoldersByName(PHOTO_FOLDER_NAME);
