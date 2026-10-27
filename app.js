@@ -60,8 +60,8 @@ function dash(){setTitle('แดชบอร์ด');const st=E.map(e=>[e,status
  const month=today().slice(0,7),done=new Set(I.filter(i=>i.date.startsWith(month)&&findE(i.extId)).map(i=>i.extId)).size,failed=st.filter(([,s])=>s.last&&s.last.result==='fail');
  app.innerHTML=`<img class="banner" src="img/banner.jpg" alt="Nana Plaza, Sukhumvit Soi 4, Bangkok"><div class="stats"><div class="stat"><b>${E.length}</b>อุปกรณ์ทั้งหมด</div><div class="stat"><b class="green">${done}</b>ตรวจแล้วเดือนนี้</div>
 <div class="stat"><b class="red">${over.length}</b>เลยกำหนด/ยังไม่ตรวจ</div><div class="stat"><b class="orange">${exp.length}</b>หมดอายุ/ใกล้หมด</div></div>
-<div class="card cats"><b>แยกตามประเภทอุปกรณ์</b><table class="cattab"><thead><tr><th></th><th>ทั้งหมด</th><th>ตรวจเดือนนี้</th><th>ไม่ผ่าน</th><th>เลยกำหนด</th></tr></thead><tbody>
-${CAT_KEYS.map(c=>{const k=catStats(E.filter(e=>catOf(e)===c),month);return `<tr data-c="${c}"><td><a href="#/list/${c}">${catLabel(c)}</a></td><td>${k.total}</td><td class="green">${k.done}</td><td class="${k.failed?'red':''}">${k.failed}</td><td class="${k.over?'red':''}">${k.over}</td></tr>`}).join('')}</tbody></table></div>
+<div class="catgrid">${CAT_KEYS.map(c=>{const k=catStats(E.filter(e=>catOf(e)===c),month);return `<a class="catbtn cat-${c}" data-c="${c}" href="#/list/${c}"><span class="ci">${CATS[c].icon}</span><span class="cn">${CATS[c].name}</span>
+<span class="cc"><span data-k="total">ทั้งหมด <b>${k.total}</b></span><span data-k="done">ตรวจเดือนนี้ <b class="green">${k.done}</b></span><span data-k="failed" class="${k.failed?'hot':''}">ไม่ผ่าน <b>${k.failed}</b></span><span data-k="over" class="${k.over?'hot':''}">เลยกำหนด <b>${k.over}</b></span></span></a>`}).join('')}</div>
 <a class="btn full" href="#/scan">📷 สแกน QR เพื่อตรวจ</a>
 ${E.length?'':`<div class="card">ยังไม่มีข้อมูลอุปกรณ์ <a href="#/new">+ เพิ่มอุปกรณ์แรก</a> หรือ <a href="#" id="demo">โหลดข้อมูลตัวอย่าง</a></div>`}
 ${sec('❌ ผลตรวจล่าสุดไม่ผ่าน',failed)}${sec('🔴 เลยกำหนดตรวจ / ยังไม่เคยตรวจ',over)}${sec('🟠 ใกล้ถึงกำหนดตรวจ (ภายใน '+SOON+' วัน)',soon)}${sec('⏳ หมดอายุ / ใกล้หมดอายุ (ภายใน '+EXP_SOON+' วัน)',exp)}`;
@@ -76,7 +76,7 @@ function list(cat){if(!CATS[cat])cat='';setTitle(cat?'รายการ'+CATS[c
 const guessCat=id=>CAT_KEYS.find(c=>String(id||'').toUpperCase().startsWith(CATS[c].prefix))||'';
 function edit(id,newId0){const e=id?findE(id):null;if(id&&!e)return notFound(id);const nid=e?'':String(newId0||'').trim();const v=e||{unit:'lbs',install:today(),id:nid,category:guessCat(nid)||'ext'};let cat=catOf(v);
  setTitle(e?'แก้ไข '+e.id:'เพิ่มอุปกรณ์',1);
- app.innerHTML=`<form class="card" id="f"><label>ประเภทอุปกรณ์ *</label><div class="catpick">${CAT_KEYS.map(c=>`<label class="catopt"><input type="radio" name="category" value="${c}" ${c===cat?'checked':''}><span>${CATS[c].icon}<br>${CATS[c].name}</span></label>`).join('')}</div>
+ app.innerHTML=`<form class="card" id="f"><label>ประเภทอุปกรณ์ *</label><div class="catpick">${CAT_KEYS.map(c=>`<label class="catopt"><input type="radio" name="category" value="${c}" ${c===cat?'checked':''}><span><span class="oi">${CATS[c].icon}</span>${CATS[c].name}</span></label>`).join('')}</div>
 <label>รหัสอุปกรณ์ (ID) *</label><input name="id" required value="${esc(v.id)}" ${e?'readonly':''} placeholder="เช่น ${CATS[cat].prefix}A-01-001">
 <label>อาคาร</label><input name="building" value="${esc(v.building)}"><label>ชั้น</label><input name="floor" value="${esc(v.floor)}">
 <label>ตำแหน่ง/จุดติดตั้ง</label><input name="spot" value="${esc(v.spot)}" placeholder="เช่น หน้าลิฟต์โดยสาร">
