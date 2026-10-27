@@ -59,3 +59,8 @@ code{word-break:break-all}
 .catbtn .cc b{font-size:20px;line-height:1.15;font-weight:bold}
 .catbtn .cc .hot{background:#ffebee}.catbtn .cc .hot small{color:#c62828}
 .catbtn .cc b{color:#222}.catbtn .cc b.green{color:#2e7d32}.catbtn .cc .hot,.catbtn .cc .hot b{color:#c62828;font-weight:bold}
+
+.stats.mini{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:4px 0 12px}
+.stats.mini .stat{padding:6px 3px 5px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-width:0}
+.stats.mini .stat small{display:block;font-size:11.5px;line-height:1.25;color:#555;min-height:2.5em;text-align:center}
+.stats.mini .stat b{font-size:20px;line-height:1.2;margin-top:2px}

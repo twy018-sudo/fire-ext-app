@@ -58,11 +58,11 @@ function catStats(arr,month){const st=arr.map(e=>status(e)),ids=new Set(arr.map(
 function dash(){setTitle('แดชบอร์ด');const st=E.map(e=>[e,status(e)]);
  const over=st.filter(([,s])=>s.insp==='overdue'||s.insp==='never'),soon=st.filter(([,s])=>s.insp==='soon'),exp=st.filter(([,s])=>s.exp==='expired'||s.exp==='soon');
  const month=today().slice(0,7),done=new Set(I.filter(i=>i.date.startsWith(month)&&findE(i.extId)).map(i=>i.extId)).size,failed=st.filter(([,s])=>s.last&&s.last.result==='fail');
- app.innerHTML=`<img class="banner" src="img/banner.jpg" alt="Nana Plaza, Sukhumvit Soi 4, Bangkok"><div class="stats"><div class="stat"><b>${E.length}</b>อุปกรณ์ทั้งหมด</div><div class="stat"><b class="green">${done}</b>ตรวจแล้วเดือนนี้</div>
-<div class="stat"><b class="red">${over.length}</b>เลยกำหนด/ยังไม่ตรวจ</div><div class="stat"><b class="orange">${exp.length}</b>หมดอายุ/ใกล้หมด</div></div>
+ app.innerHTML=`<img class="banner" src="img/banner.jpg" alt="Nana Plaza, Sukhumvit Soi 4, Bangkok">
 <div class="catgrid">${CAT_KEYS.map(c=>{const k=catStats(E.filter(e=>catOf(e)===c),month);return `<a class="catbtn cat-${c}" data-c="${c}" href="#/list/${c}"><span class="ci">${CATS[c].icon}</span><span class="cn">${CATS[c].name}</span>
 <span class="cc"><span data-k="total"><small>ทั้งหมด</small><b>${k.total}</b></span><span data-k="done"><small>ตรวจเดือนนี้</small><b class="green">${k.done}</b></span><span data-k="failed" class="${k.failed?'hot':''}"><small>ไม่ผ่าน</small><b>${k.failed}</b></span><span data-k="over" class="${k.over?'hot':''}"><small>เลยกำหนด</small><b>${k.over}</b></span></span></a>`}).join('')}</div>
 <a class="btn full" href="#/scan">📷 สแกน QR เพื่อตรวจ</a>
+<div class="stats mini"><div class="stat" data-k="total"><small>อุปกรณ์<br>ทั้งหมด</small><b>${E.length}</b></div><div class="stat" data-k="done"><small>ตรวจแล้ว<br>เดือนนี้</small><b class="green">${done}</b></div><div class="stat" data-k="over"><small>เลยกำหนด/<br>ยังไม่ตรวจ</small><b class="red">${over.length}</b></div><div class="stat" data-k="exp"><small>หมดอายุ/<br>ใกล้หมด</small><b class="orange">${exp.length}</b></div></div>
 ${E.length?'':`<div class="card">ยังไม่มีข้อมูลอุปกรณ์ <a href="#/new">+ เพิ่มอุปกรณ์แรก</a> หรือ <a href="#" id="demo">โหลดข้อมูลตัวอย่าง</a></div>`}
 ${sec('❌ ผลตรวจล่าสุดไม่ผ่าน',failed)}${sec('🔴 เลยกำหนดตรวจ / ยังไม่เคยตรวจ',over)}${sec('🟠 ใกล้ถึงกำหนดตรวจ (ภายใน '+SOON+' วัน)',soon)}${sec('⏳ หมดอายุ / ใกล้หมดอายุ (ภายใน '+EXP_SOON+' วัน)',exp)}`;
  const d=$('#demo');if(d)d.onclick=ev=>{ev.preventDefault();demo();route()};
