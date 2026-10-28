@@ -55,28 +55,29 @@ function card(e){const s=status(e),c=catOf(e);return `<a class="item card cat-${
 
 function catStats(arr,month){const st=arr.map(e=>status(e)),ids=new Set(arr.map(e=>e.id));
  return {total:arr.length,done:new Set(I.filter(i=>i.date.startsWith(month)&&ids.has(i.extId)).map(i=>i.extId)).size,failed:st.filter(s=>s.last&&s.last.result==='fail').length,over:st.filter(s=>s.insp==='overdue'||s.insp==='never').length}}
-function dash(){setTitle('แดชบอร์ด');const st=E.map(e=>[e,status(e)]);
+function dash(){setTitle('แดชบอร์ด');const EE=EA(),on=ON(),st=EE.map(e=>[e,status(e)]),hid=CAT_KEYS.filter(c=>!catOn(c));
  const over=st.filter(([,s])=>s.insp==='overdue'||s.insp==='never'),soon=st.filter(([,s])=>s.insp==='soon'),exp=st.filter(([,s])=>s.exp==='expired'||s.exp==='soon');
- const month=today().slice(0,7),done=new Set(I.filter(i=>i.date.startsWith(month)&&findE(i.extId)).map(i=>i.extId)).size,failed=st.filter(([,s])=>s.last&&s.last.result==='fail');
+ const month=today().slice(0,7),done=new Set(I.filter(i=>{const e=findE(i.extId);return i.date.startsWith(month)&&e&&catOn(catOf(e))}).map(i=>i.extId)).size,failed=st.filter(([,s])=>s.last&&s.last.result==='fail');
  app.innerHTML=`<img class="banner" src="img/banner.jpg" alt="Nana Plaza, Sukhumvit Soi 4, Bangkok">
-<div class="catgrid">${CAT_KEYS.map(c=>{const k=catStats(E.filter(e=>catOf(e)===c),month);return `<a class="catbtn cat-${c}" data-c="${c}" href="#/list/${c}"><span class="ci">${CATS[c].icon}</span><span class="cn">${CATS[c].name}</span>
+<div class="catgrid n${on.length}">${on.map(c=>{const k=catStats(E.filter(e=>catOf(e)===c),month);return `<a class="catbtn cat-${c}" data-c="${c}" href="#/list/${c}"><span class="ci">${CATS[c].icon}</span><span class="cn">${CATS[c].name}</span>
 <span class="cc"><span data-k="total"><small>ทั้งหมด</small><b>${k.total}</b></span><span data-k="done"><small>ตรวจเดือนนี้</small><b class="green">${k.done}</b></span><span data-k="failed" class="${k.failed?'hot':''}"><small>ไม่ผ่าน</small><b>${k.failed}</b></span><span data-k="over" class="${k.over?'hot':''}"><small>เลยกำหนด</small><b>${k.over}</b></span></span></a>`}).join('')}</div>
 <a class="btn full scanbtn" href="#/scan" aria-label="สแกน QR เพื่อตรวจอุปกรณ์"><span class="s1"><span class="si" aria-hidden="true">📷</span>สแกน QR</span><span class="s2">เพื่อตรวจอุปกรณ์</span></a>
-<div class="stats mini"><div class="stat" data-k="total"><small>อุปกรณ์<br>ทั้งหมด</small><b>${E.length}</b></div><div class="stat" data-k="done"><small>ตรวจแล้ว<br>เดือนนี้</small><b class="green">${done}</b></div><div class="stat" data-k="over"><small>เลยกำหนด/<br>ยังไม่ตรวจ</small><b class="red">${over.length}</b></div><div class="stat" data-k="exp"><small>หมดอายุ/<br>ใกล้หมด</small><b class="orange">${exp.length}</b></div></div>
+<div class="stats mini"><div class="stat" data-k="total"><small>อุปกรณ์<br>ทั้งหมด</small><b>${EE.length}</b></div><div class="stat" data-k="done"><small>ตรวจแล้ว<br>เดือนนี้</small><b class="green">${done}</b></div><div class="stat" data-k="over"><small>เลยกำหนด/<br>ยังไม่ตรวจ</small><b class="red">${over.length}</b></div><div class="stat" data-k="exp"><small>หมดอายุ/<br>ใกล้หมด</small><b class="orange">${exp.length}</b></div></div>
+${hid.length?`<p class="small gray hidnote">ซ่อนอยู่: ${hid.map(catLabel).join(', ')} · เปิดได้ที่ 💾 ข้อมูล → ประเภทอุปกรณ์ที่ตรวจ</p>`:''}
 ${E.length?'':`<div class="card">ยังไม่มีข้อมูลอุปกรณ์ <a href="#/new">+ เพิ่มอุปกรณ์แรก</a> หรือ <a href="#" id="demo">โหลดข้อมูลตัวอย่าง</a></div>`}
 ${sec('❌ ผลตรวจล่าสุดไม่ผ่าน',failed)}${sec('🔴 เลยกำหนดตรวจ / ยังไม่เคยตรวจ',over)}${sec('🟠 ใกล้ถึงกำหนดตรวจ (ภายใน '+SOON+' วัน)',soon)}${sec('⏳ หมดอายุ / ใกล้หมดอายุ (ภายใน '+EXP_SOON+' วัน)',exp)}`;
  const d=$('#demo');if(d)d.onclick=ev=>{ev.preventDefault();demo();route()};
  function sec(t,arr){return arr.length?`<h3>${t} (${arr.length})</h3>`+arr.map(([e])=>card(e)).join(''):''}}
 
-function catChips(cur,href){return `<div class="chips">${['',...CAT_KEYS].map(c=>`<a class="chip ${c===(cur||'')?'on':''}" data-c="${c}" href="${href(c)}">${c?catLabel(c):'ทั้งหมด'} (${c?E.filter(e=>catOf(e)===c).length:E.length})</a>`).join('')}</div>`}
-function list(cat){if(!CATS[cat])cat='';setTitle(cat?'รายการ'+CATS[cat].name:'รายการอุปกรณ์');app.innerHTML=`${catChips(cat,c=>'#/list'+(c?'/'+c:''))}<a class="btn full" href="#/new${cat?'/'+CATS[cat].prefix:''}">+ เพิ่ม${cat?CATS[cat].name:'อุปกรณ์'}</a><input id="q" placeholder="ค้นหา รหัส / อาคาร / ชั้น / จุด"><div id="ls" style="margin-top:10px"></div>`;
- const r=()=>{const q=$('#q').value.toLowerCase();const f=E.filter(e=>(!cat||catOf(e)===cat)&&(e.id+' '+loc(e)+' '+(e.type||'')+' '+CATS[catOf(e)].name).toLowerCase().includes(q)).sort((a,b)=>a.id.localeCompare(b.id,'th',{numeric:true}));
+function catChips(cur,href){const on=ON();return `<div class="chips">${['',...on].map(c=>`<a class="chip ${c===(cur||'')?'on':''}" data-c="${c}" href="${href(c)}">${c?catLabel(c):'ทั้งหมด'} (${c?E.filter(e=>catOf(e)===c).length:EA().length})</a>`).join('')}</div>`}
+function list(cat){if(!CATS[cat]||!catOn(cat))cat='';setTitle(cat?'รายการ'+CATS[cat].name:'รายการอุปกรณ์');app.innerHTML=`${catChips(cat,c=>'#/list'+(c?'/'+c:''))}<a class="btn full" href="#/new${cat?'/'+CATS[cat].prefix:''}">+ เพิ่ม${cat?CATS[cat].name:'อุปกรณ์'}</a><input id="q" placeholder="ค้นหา รหัส / อาคาร / ชั้น / จุด"><div id="ls" style="margin-top:10px"></div>`;
+ const r=()=>{const q=$('#q').value.toLowerCase();const f=EA().filter(e=>(!cat||catOf(e)===cat)&&(e.id+' '+loc(e)+' '+(e.type||'')+' '+CATS[catOf(e)].name).toLowerCase().includes(q)).sort((a,b)=>a.id.localeCompare(b.id,'th',{numeric:true}));
   $('#ls').innerHTML=f.map(card).join('')||'<p class="gray">ไม่พบข้อมูล</p>'};$('#q').oninput=r;r()}
 
 const guessCat=id=>CAT_KEYS.find(c=>String(id||'').toUpperCase().startsWith(CATS[c].prefix))||'';
-function edit(id,newId0){const e=id?findE(id):null;if(id&&!e)return notFound(id);const nid=e?'':String(newId0||'').trim();const v=e||{unit:'lbs',install:today(),id:nid,category:guessCat(nid)||'ext'};let cat=catOf(v);
+function edit(id,newId0){const e=id?findE(id):null;if(id&&!e)return notFound(id);const nid=e?'':String(newId0||'').trim();const v=e||{unit:'lbs',install:today(),id:nid,category:guessCat(nid)||'ext'};let cat=catOf(v);if(!e&&!catOn(cat))cat=ON()[0];const pick=CAT_KEYS.filter(c=>catOn(c)||c===cat);
  setTitle(e?'แก้ไข '+e.id:'เพิ่มอุปกรณ์',1);
- app.innerHTML=`<form class="card" id="f"><label>ประเภทอุปกรณ์ *</label><div class="catpick">${CAT_KEYS.map(c=>`<label class="catopt"><input type="radio" name="category" value="${c}" ${c===cat?'checked':''}><span><span class="oi">${CATS[c].icon}</span>${CATS[c].name}</span></label>`).join('')}</div>
+ app.innerHTML=`<form class="card" id="f"><label>ประเภทอุปกรณ์ *</label><div class="catpick n${pick.length}">${pick.map(c=>`<label class="catopt"><input type="radio" name="category" value="${c}" ${c===cat?'checked':''}><span><span class="oi">${CATS[c].icon}</span>${CATS[c].name}</span></label>`).join('')}</div>
 <label>รหัสอุปกรณ์ (ID) *</label><input name="id" required value="${esc(v.id)}" ${e?'readonly':''} placeholder="เช่น ${CATS[cat].prefix}A-01-001">
 <label>อาคาร</label><input name="building" value="${esc(v.building)}"><label>ชั้น</label><input name="floor" value="${esc(v.floor)}">
 <label>ตำแหน่ง/จุดติดตั้ง</label><input name="spot" value="${esc(v.spot)}" placeholder="เช่น หน้าลิฟต์โดยสาร">
@@ -102,12 +103,12 @@ function notFound(id){setTitle('ไม่พบข้อมูล',1);app.innerH
  setTimeout(()=>{const i=document.querySelector('[name=id]')},0)}
 
 function detail(id){const e=findE(id);if(!e)return notFound(id);const c=catOf(e);setTitle(CATS[c].name+' '+e.id,1);const s=status(e),h=insOf(id);
- app.innerHTML=`<div class="card"><div class="row"><b style="font-size:20px">${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
+ app.innerHTML=`${offNote(c)}<div class="card"><div class="row"><b style="font-size:20px">${esc(e.id)}</b><span>${inspBadge(s.insp)} ${expBadge(s.exp)}</span></div>
 <p>${catLabel(c)}<br>📍 ${esc(loc(e))||'-'}${c==='ext'?'<br>🧯 '+extInfo(e):''}<br>ติดตั้ง: ${thDate(e.install)}${c==='ext'?'<br>หมดอายุ/เติมสาร: '+thDate(e.expiry):''}<br>ครบกำหนดตรวจ: ${s.due?thDate(s.due):'ทันที'}${e.note?'<br>หมายเหตุ: '+esc(e.note):''}</p>${photoHtml(e)}
 <div id="qr" style="display:flex;justify-content:center"></div>
 <a class="btn ok" href="#/inspect/${encodeURIComponent(id)}">✅ ตรวจประจำเดือน</a><a class="btn sec" href="#/edit/${encodeURIComponent(id)}">✏️ แก้ไข</a><a class="btn sec" href="#/qr/${encodeURIComponent(id)}">🖨 พิมพ์ QR</a></div>
 <h3>ประวัติการตรวจ (${h.length})</h3>${h.map(i=>`<a class="item card" href="#/view/${i.ts}"><div class="row"><b>${thDate(i.date)}</b>${i.result==='pass'?'<span class="badge green">ผ่าน</span>':'<span class="badge red">ไม่ผ่าน</span>'}</div><div class="small">ผู้ตรวจ: ${esc(i.inspector)}${i.notes?' · '+esc(i.notes):''}${i.photo||i.photoUrl?' · 📷':''}${i.synced?'':' · ⏳'}</div></a>`).join('')||'<p class="gray">ยังไม่มีประวัติ</p>'}`;
- new QRCode($('#qr'),{text:extUrl(id),width:160,height:160,correctLevel:QRCode.CorrectLevel.M})}
+ bindReon(c);new QRCode($('#qr'),{text:extUrl(id),width:160,height:160,correctLevel:QRCode.CorrectLevel.M})}
 
 function viewIns(ts){const i=I.find(x=>String(x.ts)===ts);if(!i)return notFound(ts);const e=findE(i.extId);setTitle('ผลตรวจ '+i.extId,1);
  app.innerHTML=`<div class="card"><b>${esc(i.extId)}</b> · ${thDate(i.date)}<div class="small">${esc(e?loc(e):'')}</div>
@@ -118,7 +119,7 @@ ${i.synced?'':'<button class="btn" id="d">🗑 ลบรายการตรว
  if($('#d'))$('#d').onclick=()=>{if(confirm('ลบรายการตรวจนี้?')){I=I.filter(x=>x!==i);save(KEY_I,I);history.back()}}}
 
 function inspect(id){const e=findE(id);if(!e)return notFound(id);const cat=catOf(e),CHECKS=catChecks(cat);setTitle('ตรวจ'+CATS[cat].name+' '+e.id,1);const items={};let photo='';
- app.innerHTML=`<div class="card"><b style="font-size:18px">${CATS[cat].icon} ${esc(e.id)}</b><div class="small">${esc(CATS[cat].name)} · 📍 ${esc(loc(e))}${cat==='ext'?' · '+extInfo(e):''}</div>
+ app.innerHTML=`${offNote(cat)}<div class="card"><b style="font-size:18px">${CATS[cat].icon} ${esc(e.id)}</b><div class="small">${esc(CATS[cat].name)} · 📍 ${esc(loc(e))}${cat==='ext'?' · '+extInfo(e):''}</div>
 <div class="small">วันที่ตรวจ: ${thDate(today())}</div>${expBadge(status(e).exp)}</div>
 <div class="card"><div class="row"><b>รายการตรวจประจำเดือน (${esc(CATS[cat].name)})</b><button class="btn sec" id="all" style="padding:6px 10px;font-size:13px">ผ่านทั้งหมด</button></div>
 ${CHECKS.map(([k,t],n)=>`<div class="chk"><span>${n+1}. ${t}</span><div class="pf" data-k="${k}"><button class="p">ผ่าน</button><button class="f">ไม่ผ่าน</button></div></div>`).join('')}
@@ -142,16 +143,16 @@ function photoHtml(e,thumb){const cls=thumb?'thumb':'photo';if(e.photo)return `<
 function shrink(f,max=800){return new Promise(res=>{const img=new Image();img.onload=()=>{const m=max,k=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);res(c.toDataURL('image/jpeg',0.6))};img.src=URL.createObjectURL(f)})}
 
 function scan(){setTitle('สแกน QR');app.innerHTML=`<div class="card"><div id="reader"></div><p class="small" id="msg">กำลังเปิดกล้อง... (ต้องอนุญาตการใช้กล้อง)</p>
-<label>หรือพิมพ์รหัสอุปกรณ์</label><div class="row"><input id="mid" list="ids"><button class="btn" id="go">ไป</button></div><datalist id="ids">${E.map(e=>`<option value="${esc(e.id)}">`).join('')}</datalist></div>`;
+<label>หรือพิมพ์รหัสอุปกรณ์</label><div class="row"><input id="mid" list="ids"><button class="btn" id="go">ไป</button></div><datalist id="ids">${EA().map(e=>`<option value="${esc(e.id)}">`).join('')}</datalist></div>`;
  $('#go').onclick=()=>{const v=$('#mid').value.trim();if(v)location.hash='#/inspect/'+encodeURIComponent(v)};
  if(typeof Html5Qrcode==='undefined'){$('#msg').textContent='ไม่พบไลบรารีสแกน';return}
  scanner=new Html5Qrcode('reader');scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:230}},t=>{const id=parseScan(t);stopScan().then(()=>{navigator.vibrate&&navigator.vibrate(150);location.hash='#/inspect/'+encodeURIComponent(id)})},()=>{})
   .then(()=>$('#msg').textContent='เล็งกล้องไปที่ QR บนอุปกรณ์ (ถังดับเพลิง / ไฟฉุกเฉิน / ป้ายทางหนีไฟ / ตู้สายฉีด)').catch(err=>{$('#msg').textContent='เปิดกล้องไม่ได้: '+err+' (ต้องใช้ HTTPS หรือ localhost)';scanner=null})}
 
-function qr(one){setTitle('ป้าย QR',1);if(one&&!findE(one))one='';const sel=E.filter(e=>!one||e.id===one).sort((a,b)=>a.id.localeCompare(b.id,'th',{numeric:true}));
- const bs=[...new Set(E.map(e=>e.building).filter(Boolean))];
+function qr(one){setTitle('ป้าย QR',1);if(one&&!findE(one))one='';const sel=(one?E:EA()).filter(e=>!one||e.id===one).sort((a,b)=>a.id.localeCompare(b.id,'th',{numeric:true}));
+ const bs=[...new Set(EA().map(e=>e.building).filter(Boolean))];
  app.innerHTML=`<div class="card no-print"><p class="small">พิมพ์บนกระดาษ A4 (4 คอลัมน์ต่อแถว) ตัดตามเส้นประแล้วติดที่อุปกรณ์ · QR เก็บลิงก์ <code>${esc(extUrl('รหัส'))}</code></p>
-${one?'':`<label>ประเภทอุปกรณ์</label><select id="fc"><option value="">ทั้งหมด</option>${CAT_KEYS.map(c=>`<option value="${c}">${catLabel(c)} (${E.filter(e=>catOf(e)===c).length})</option>`).join('')}</select><label>กรองตามอาคาร</label><select id="fb"><option value="">ทั้งหมด</option>${bs.map(b=>`<option>${esc(b)}</option>`).join('')}</select>`}
+${one?'':`<label>ประเภทอุปกรณ์</label><select id="fc"><option value="">ทั้งหมด</option>${ON().map(c=>`<option value="${c}">${catLabel(c)} (${E.filter(e=>catOf(e)===c).length})</option>`).join('')}</select><label>กรองตามอาคาร</label><select id="fb"><option value="">ทั้งหมด</option>${bs.map(b=>`<option>${esc(b)}</option>`).join('')}</select>`}
 <button class="btn" onclick="print()">🖨 พิมพ์</button></div><div class="qrsheet" id="sheet"></div>`;
  const r=(b,c)=>{const sh=$('#sheet');sh.innerHTML='';sel.filter(e=>(!b||e.building===b)&&(!c||catOf(e)===c)).forEach(e=>{const k=catOf(e),d=document.createElement('div');d.className='qrlabel';d.dataset.c=k;d.innerHTML=`<div class="qrcat">${CATS[k].icon} ${esc(CATS[k].name)}</div><div class="qr"></div><b>${esc(e.id)}</b><small>${esc(loc(e))}</small>${k==='ext'?`<small>${esc((e.type||'').split(' (')[0])} ${e.size?esc(e.size)+' '+esc(e.unit):''}</small>`:''}`;sh.appendChild(d);
   new QRCode(d.querySelector('.qr'),{text:extUrl(e.id),width:256,height:256,correctLevel:QRCode.CorrectLevel.M})});if(!sh.children.length)sh.innerHTML='<p>ไม่มีข้อมูล</p>'};
@@ -165,19 +166,22 @@ function data(){setTitle('ข้อมูล / สำรอง');let used=0;for(
 <label>รหัสทีม (Team key)</label><input id="sk" value="${esc(S.key)}" autocomplete="off">
 <button class="btn ok" id="ss">🔄 ซิงก์ตอนนี้</button><button class="btn sec" id="inv">👥 ชวนเพื่อน</button>
 <div class="small" id="syncinfo"></div><div id="invbox"></div></div>
-<div class="card"><b>ส่งออก CSV (เปิดใน Excel ได้)</b><br><button class="btn" id="ce">รายการอุปกรณ์</button><button class="btn" id="ci">ประวัติการตรวจ</button></div>
+<div class="card" id="catset"><b>🗂 ประเภทอุปกรณ์ที่ตรวจ</b>${CAT_KEYS.map(c=>`<label class="tgl${c===LOCKED?' locked':''}"><span>${catLabel(c)} <small class="gray">(${E.filter(e=>catOf(e)===c).length})</small></span>${c===LOCKED?'<small class="lockt">🔒 เปิดเสมอ</small>':''}<input type="checkbox" data-c="${c}" ${catOn(c)?'checked':''} ${c===LOCKED?'disabled':''}><i></i></label>`).join('')}
+<p class="small gray">ปิดประเภทที่ไม่ต้องการตรวจ จะซ่อนจากหน้าหลัก รายการ ฟอร์มเพิ่ม และหน้าพิมพ์ QR เท่านั้น <b>ไม่ลบข้อมูล</b> เปิดกลับได้ทุกเมื่อ · ถังดับเพลิงต้องตรวจเสมอจึงปิดไม่ได้ · ตั้งค่าเฉพาะเครื่องนี้</p></div>
+<div class="card"><b>ส่งออก CSV (เปิดใน Excel ได้)</b>${CAT_KEYS.some(c=>!catOn(c))?'<div class="small gray">ไม่รวมประเภทที่ปิดอยู่</div>':'<br>'}<button class="btn" id="ce">รายการอุปกรณ์</button><button class="btn" id="ci">ประวัติการตรวจ</button></div>
 <div class="card"><b>สำรอง / กู้คืน (JSON)</b><br><button class="btn sec" id="bj">⬇ สำรองข้อมูล</button><label>กู้คืนจากไฟล์ (จะแทนที่ข้อมูลปัจจุบัน)</label><input type="file" id="rj" accept=".json,application/json"></div>
 <div class="card small">อุปกรณ์ ${E.length} (${CAT_KEYS.map(c=>CATS[c].icon+E.filter(e=>catOf(e)===c).length).join(' ')}) · การตรวจ ${I.length} · ใช้พื้นที่ประมาณ ${(used*2/1048576).toFixed(2)} MB (localStorage จำกัดราว 5 MB)<br>ข้อมูลเก็บในเครื่องนี้เท่านั้น ควรสำรองข้อมูลเป็นประจำ
 <br><button class="btn sec" id="dm">โหลดข้อมูลตัวอย่าง</button><button class="btn" id="wipe">ลบข้อมูลทั้งหมด</button></div>`;
  const st=today();showSync();
+ document.querySelectorAll('#catset input[data-c]').forEach(x=>x.onchange=()=>{if(!setCatOn(x.dataset.c,x.checked))x.checked=true});
  const keep=()=>{const u=$('#su').value.trim(),k=$('#sk').value.trim();if(u!==S.url||k!==S.key){S.url=u;S.key=k;S.lastSync=0;save(KEY_S,S)}};
  $('#ss').onclick=()=>{keep();sync(true)};
  $('#inv').onclick=()=>{keep();if(!S.url||!S.key)return alert('กรุณากรอก URL และรหัสทีมก่อน');const link=inviteLink();
   $('#invbox').innerHTML=`<p class="small">ให้เพื่อนสแกน QR นี้ หรือส่งลิงก์ให้เปิดในโทรศัพท์ (Chrome) — <b class="red">อย่าแชร์ให้คนนอกทีม</b> เพราะมีรหัสทีมอยู่</p><div id="invqr" style="display:flex;justify-content:center"></div><input readonly value="${esc(link)}" onclick="this.select()"><button class="btn sec" id="cp">📋 คัดลอก/แชร์ลิงก์</button>`;
   new QRCode($('#invqr'),{text:link,width:200,height:200,correctLevel:QRCode.CorrectLevel.L});
   $('#cp').onclick=async()=>{try{if(navigator.share)await navigator.share({title:'ตรวจถังดับเพลิง - เข้าร่วมทีม',url:link});else{await navigator.clipboard.writeText(link);alert('คัดลอกแล้ว')}}catch{}}};
- $('#ce').onclick=()=>dl(`equipment_${st}.csv`,csv([['รหัส','ประเภท','อาคาร','ชั้น','ตำแหน่ง','ชนิด','ขนาด','หน่วย','วันติดตั้ง','วันหมดอายุ/เติมสาร','ตรวจล่าสุด','ผลล่าสุด','ครบกำหนดตรวจ','สถานะหมายเหตุ'],...E.map(e=>{const s=status(e);const x=catOf(e)==='ext';return [e.id,CATS[catOf(e)].name,e.building,e.floor,e.spot,x?e.type:'',x?e.size:'',x?e.unit:'',e.install,x?e.expiry:'',s.last?.date,s.last?(s.last.result==='pass'?'ผ่าน':'ไม่ผ่าน'):'',s.due,e.note]})]),'text/csv;charset=utf-8');
- $('#ci').onclick=()=>dl(`inspections_${st}.csv`,csv([['วันที่','รหัสอุปกรณ์','ประเภท','ตำแหน่ง',...CHECKS.map(c=>c[1]),'รายการตรวจ (ทุกประเภท)','ผลรวม','ผู้ตรวจ','หมายเหตุ','มีรูป'],...I.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(i=>{const e=findE(i.extId);const c=insCat(i);return [i.date,i.extId,CATS[c].name,e?loc(e):'',...CHECKS.map(([k])=>c!=='ext'?'':i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน'),catChecks(c).map(([k,t])=>t+': '+(i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน')).join('; '),i.result==='pass'?'ผ่าน':'ไม่ผ่าน',i.inspector,i.notes,i.photo?'มี':'']})]),'text/csv;charset=utf-8');
+ $('#ce').onclick=()=>dl(`equipment_${st}.csv`,csv([['รหัส','ประเภท','อาคาร','ชั้น','ตำแหน่ง','ชนิด','ขนาด','หน่วย','วันติดตั้ง','วันหมดอายุ/เติมสาร','ตรวจล่าสุด','ผลล่าสุด','ครบกำหนดตรวจ','สถานะหมายเหตุ'],...EA().map(e=>{const s=status(e);const x=catOf(e)==='ext';return [e.id,CATS[catOf(e)].name,e.building,e.floor,e.spot,x?e.type:'',x?e.size:'',x?e.unit:'',e.install,x?e.expiry:'',s.last?.date,s.last?(s.last.result==='pass'?'ผ่าน':'ไม่ผ่าน'):'',s.due,e.note]})]),'text/csv;charset=utf-8');
+ $('#ci').onclick=()=>dl(`inspections_${st}.csv`,csv([['วันที่','รหัสอุปกรณ์','ประเภท','ตำแหน่ง',...CHECKS.map(c=>c[1]),'รายการตรวจ (ทุกประเภท)','ผลรวม','ผู้ตรวจ','หมายเหตุ','มีรูป'],...I.filter(i=>catOn(insCat(i))).sort((a,b)=>a.date.localeCompare(b.date)).map(i=>{const e=findE(i.extId);const c=insCat(i);return [i.date,i.extId,CATS[c].name,e?loc(e):'',...CHECKS.map(([k])=>c!=='ext'?'':i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน'),catChecks(c).map(([k,t])=>t+': '+(i.items[k]==='pass'?'ผ่าน':'ไม่ผ่าน')).join('; '),i.result==='pass'?'ผ่าน':'ไม่ผ่าน',i.inspector,i.notes,i.photo?'มี':'']})]),'text/csv;charset=utf-8');
  $('#bj').onclick=()=>dl(`fire-ext-backup_${st}.json`,JSON.stringify({app:'fire-ext-app',version:1,exported:new Date().toISOString(),extinguishers:E,inspections:I,settings:S}),'application/json');
  $('#rj').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.extinguishers)||!Array.isArray(d.inspections))throw 0;
   if(!confirm(`กู้คืน ${d.extinguishers.length} อุปกรณ์, ${d.inspections.length} การตรวจ? ข้อมูลเดิมจะถูกแทนที่`))return;E=d.extinguishers;I=d.inspections;S=d.settings||S;save(KEY_E,E);save(KEY_I,I);save(KEY_S,S);alert('กู้คืนสำเร็จ');location.hash='#/'}catch{alert('ไฟล์ไม่ถูกต้อง')}};
@@ -199,10 +203,19 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){let h=!!navigator.
 // ---------- Google Sheets sync ----------
 let syncing=false,syncTimer=null;
 const b64e=s=>btoa(unescape(encodeURIComponent(s))),b64d=s=>decodeURIComponent(escape(atob(s)));
-function inviteLink(){return location.origin+location.pathname+'#setup='+encodeURIComponent(b64e(JSON.stringify({u:S.url,k:S.key})))}
+function inviteLink(){return location.origin+location.pathname+'#setup='+encodeURIComponent(b64e(JSON.stringify(Object.assign({u:S.url,k:S.key},Array.isArray(S.off)&&S.off.length?{off:S.off}:{}))))}
 function acceptSetup(raw){try{const o=JSON.parse(b64d(decodeURIComponent(raw)));if(!/^(https:\/\/|http:\/\/localhost)/.test(o.u)||!o.k)throw 0;
-  if(confirm('ตั้งค่าซิงก์ข้อมูลทีมกับ Google Sheets นี้?\n'+o.u)){S.url=o.u;S.key=o.k;S.lastSync=0;save(KEY_S,S);location.replace('#/data');sync(true)}else location.replace('#/')}
+  if(confirm('ตั้งค่าซิงก์ข้อมูลทีมกับ Google Sheets นี้?\n'+o.u)){S.url=o.u;S.key=o.k;S.lastSync=0;if(Array.isArray(o.off)){S.off=o.off.filter(c=>CATS[c]&&c!==LOCKED)}save(KEY_S,S);location.replace('#/data');sync(true)}else location.replace('#/')}
  catch{alert('ลิงก์เชิญไม่ถูกต้อง');location.replace('#/')}}
+// ประเภทที่ปิดการตรวจ (เก็บใน fe_settings ของเครื่องนี้ — ซ่อนเท่านั้น ไม่ลบข้อมูล)
+const LOCKED='ext'; // ถังดับเพลิงเปิดเสมอ ปิดไม่ได้
+const catOn=c=>c===LOCKED||!(Array.isArray(S.off)&&S.off.includes(c));
+const ON=()=>CAT_KEYS.filter(catOn);
+const EA=()=>E.filter(e=>catOn(catOf(e)));
+function setCatOn(c,on){if(c===LOCKED||!CATS[c])return false;const off=new Set(Array.isArray(S.off)?S.off:[]);if(on)off.delete(c);else off.add(c);
+ S.off=CAT_KEYS.filter(k=>k!==LOCKED&&off.has(k));save(KEY_S,S);return true}
+function offNote(c){return catOn(c)?'':`<div class="card offnote" data-c="${c}">⚠️ ประเภท <b>${catLabel(c)}</b> ถูกปิดการตรวจอยู่ในเครื่องนี้ (ซ่อนจากหน้าหลักและรายการ แต่ข้อมูลยังอยู่ครบ)<br><button class="btn" id="reon">✅ เปิดการตรวจ${CATS[c].name}อีกครั้ง</button></div>`}
+function bindReon(c){const b=$('#reon');if(b)b.onclick=()=>{setCatOn(c,true);route()}}
 const pending=()=>E.filter(e=>e.dirty).length+T.filter(t=>t.dirty).length+I.filter(i=>!i.synced).length;
 function setSync(msg,ok){S.syncMsg=msg;S.syncOk=ok;save(KEY_S,S);showSync()}
 function showSync(){const el=$('#syncinfo');if(!el)return;el.innerHTML=`สถานะ: <span class="${S.syncOk?'green':S.syncMsg?'red':'gray'}">${esc(S.syncMsg||(S.url?'ยังไม่ได้ซิงก์':'ยังไม่ได้ตั้งค่า'))}</span><br>ซิงก์ล่าสุด: ${S.lastSync?new Date(S.lastSync).toLocaleString('th-TH'):'-'} · รอส่ง: ${pending()} รายการ`}

@@ -70,3 +70,23 @@ code{word-break:break-all}
 .scanbtn .si{font-size:28px;line-height:1}
 .scanbtn .s2{font-size:15px;margin-top:7px;opacity:.95}
 .btn.scanbtn:active{transform:scale(.98)}
+
+.catgrid.n1{grid-template-columns:1fr}
+.catgrid.n3>.catbtn:last-child{grid-column:1/-1}
+@media(min-width:700px){.catgrid.n3{grid-template-columns:repeat(3,minmax(0,1fr))}.catgrid.n3>.catbtn:last-child{grid-column:auto}.catgrid.n2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.catpick.n1{grid-template-columns:1fr}
+.catpick.n3>.catopt:last-child{grid-column:1/-1}
+.tgl{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 2px;border-bottom:1px solid #eee;font-size:16px;cursor:pointer;margin:0}
+.tgl input{position:absolute;opacity:0;width:1px;height:1px}
+.tgl i{flex:none;width:50px;height:28px;border-radius:14px;background:#bbb;position:relative;transition:background .15s}
+.tgl i::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 2px #0004;transition:left .15s}
+.tgl input:checked+i{background:#2e7d32}
+.tgl input:checked+i::after{left:25px}
+.tgl input:focus-visible+i{outline:2px solid #1565c0}
+.offnote{background:#fff8e1;border-left:5px solid #f9a825}
+.hidnote{margin:4px 2px 8px}
+.tgl.locked{cursor:default}
+.tgl.locked span{flex:1}
+.tgl .lockt{color:#2e7d32;white-space:nowrap}
+.tgl.locked input:checked+i{background:#81c784}
+.catgrid.n3>.catbtn:last-child .cc,.catgrid.n1 .cc{grid-template-columns:repeat(4,minmax(0,1fr))}
